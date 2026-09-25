@@ -174,6 +174,7 @@ cinema-ticket-system/
 | [`diagrams/refund-flow.md`](diagrams/refund-flow.md) | Mermaid Diagram | Flowchart pembatalan jadwal dan alur pengembalian dana |
 | [`diagrams/erd.md`](diagrams/erd.md) | Mermaid Diagram | Skrip diagram ERD berbasis teks Mermaid |
 | [`swagger/`](swagger/) | OpenAPI Spec | Berkas spesifikasi interaktif Swagger (JSON, YAML, Go) |
+| [`modules/`](modules/README.md) | Penjelasan Arsitektur | Penjelasan komprehensif modul `internal/auth`, `internal/middleware`, dan `internal/schedule` |
 
 ## 6. Menjalankan Proyek
 

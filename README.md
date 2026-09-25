@@ -17,6 +17,7 @@ Sistem backend pembelian tiket bioskop online untuk skala nasional dengan banyak
 | **2. Database Design (ERD JPG & SQL)** | [**`docs/database-erd.jpg`**](docs/database-erd.jpg)<br>[**`docs/skema_dan_data_awal_bioskop.sql`**](docs/skema_dan_data_awal_bioskop.sql)<br>[**`docs/B-database-design.md`**](docs/B-database-design.md) | Diagram relasi 13 tabel (ERD), skrip import DDL PostgreSQL + data awal siap impor |
 | **3. Skill Test (Golang API)** | [**`cmd/api/main.go`**](cmd/api/main.go)<br>[**`internal/schedule/`**](internal/schedule/)<br>[**`internal/auth/`**](internal/auth/) | Implementasi RESTful API Golang + Gin + GORM + PostgreSQL: Login User JWT & CRUD Jadwal dengan proteksi overlap 409 Conflict |
 | **4. Export Postman Collection** | [**`docs/Cinema_Ticket_System.postman_collection.json`**](docs/Cinema_Ticket_System.postman_collection.json) | Koleksi Postman lengkap dengan script auto-save token JWT dan uji skenario sukses/gagal (200, 201, 204, 401, 403, 409) |
+| **5. Interactive Web Demo** | [**`http://localhost:8088/demo`**](http://localhost:8088/demo) | Portal web konsol interaktif bawaan binary Go (zero dependency Node/npm). Menyediakan pengujian visual role Admin & Customer, real-time CRUD jadwal, simulasi tabrakan jadwal (HTTP 409), serta visualisasi interaktif Redis Seat-Locking & Restock countdown |
 
 ---
 
@@ -132,7 +133,25 @@ swag init -g cmd/api/main.go -o docs/swagger
 
 ---
 
-## 5. Menjalankan Automated Tests
+## 5. Portal Web Konsol & Live Demo
+
+Tersedia dashboard visual berbasis web yang di-embed langsung ke dalam binary server Go (tanpa memerlukan Node.js atau instalasi package tambahan). Dapat diakses langsung pada browser:
+```text
+http://localhost:8088/
+# atau
+http://localhost:8088/demo
+```
+
+Fitur konsol interaktif:
+1. **Quick Switcher Role & JWT Live Handling**: Login instan sebagai `ADMIN` (`admin@example.com`) atau `CUSTOMER` (`customer@example.com`) dengan inspeksi token JWT secara visual.
+2. **Manajemen Jadwal Tayang Real-time**: Mengambil daftar jadwal dari database, formulir tambah jadwal baru, dan pembatalan jadwal (`DELETE /api/v1/schedules/:id`).
+3. **Tombol Simulasi Tabrakan Jadwal (HTTP 409 Conflict)**: Satu klik untuk menguji proteksi tumpang tindih waktu penayangan studio yang sama.
+4. **Simulasi Visual Redis Seat-Locking & Auto-Restock (Poin A)**: Interactive seatmap bioskop dengan timer countdown 10 menit (TTL Redis) dan simulasi transisi status kursi (`AVAILABLE` → `LOCKED` → `CONFIRMED` / `RESTOCKED`).
+5. **Akses Cepat Dokumen Deliverables**: Tautan langsung untuk membuka diagram topologi arsitektur JPG, ERD JPG, mendownload file SQL skema, dan koleksi Postman JSON.
+
+---
+
+## 6. Menjalankan Automated Tests
 
 Jalankan seluruh unit test dan end-to-end integration test:
 ```bash
@@ -149,7 +168,7 @@ Hasil test mencakup:
 
 ---
 
-## 6. Akun Default (Seeded)
+## 7. Akun Default (Seeded)
 
 | Role | Email | Password | Izin |
 |---|---|---|---|
@@ -158,7 +177,7 @@ Hasil test mencakup:
 
 ---
 
-## 7. Contoh Pemanggilan API (cURL)
+## 8. Contoh Pemanggilan API (cURL)
 
 ### A. Login Admin
 ```bash
