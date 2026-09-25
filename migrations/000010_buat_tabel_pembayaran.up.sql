@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS pembayaran (
+    id BIGSERIAL PRIMARY KEY,
+    pesanan_id BIGINT NOT NULL REFERENCES pesanan(id) ON DELETE CASCADE,
+    referensi_pembayaran VARCHAR(100) NOT NULL UNIQUE,
+    jumlah NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    dibayar_pada TIMESTAMP WITH TIME ZONE,
+    dibuat_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pembayaran_pesanan ON pembayaran(pesanan_id);

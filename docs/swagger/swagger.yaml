@@ -1,0 +1,390 @@
+basePath: /api/v1
+definitions:
+  auth.DetailGalat:
+    properties:
+      code:
+        example: INVALID_CREDENTIALS
+        type: string
+      message:
+        example: Invalid email or password
+        type: string
+    type: object
+  auth.PermintaanLogin:
+    properties:
+      email:
+        example: admin@example.com
+        type: string
+      kata_sandi:
+        example: password123
+        type: string
+      password:
+        example: password123
+        type: string
+    required:
+    - email
+    type: object
+  auth.ResponsGalat:
+    properties:
+      error:
+        $ref: '#/definitions/auth.DetailGalat'
+    type: object
+  auth.ResponsLogin:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      expires_in:
+        example: 86400
+        type: integer
+      token_type:
+        example: Bearer
+        type: string
+    type: object
+  schedule.DTOJadwal:
+    properties:
+      end_time:
+        example: "2026-10-01T21:10:00+07:00"
+        type: string
+      id:
+        example: 1
+        type: integer
+      movie_id:
+        example: 1
+        type: integer
+      start_time:
+        example: "2026-10-01T19:00:00+07:00"
+        type: string
+      status:
+        example: SCHEDULED
+        type: string
+      studio_id:
+        example: 1
+        type: integer
+    type: object
+  schedule.DetailGalat:
+    properties:
+      code:
+        example: SCHEDULE_NOT_FOUND
+        type: string
+      message:
+        example: Schedule not found
+        type: string
+    type: object
+  schedule.PermintaanBuatJadwal:
+    properties:
+      end_time:
+        example: "2026-10-01T21:10:00+07:00"
+        type: string
+      film_id:
+        example: 1
+        type: integer
+      movie_id:
+        example: 1
+        type: integer
+      start_time:
+        example: "2026-10-01T19:00:00+07:00"
+        type: string
+      studio_id:
+        example: 1
+        type: integer
+      waktu_mulai:
+        example: "2026-10-01T19:00:00+07:00"
+        type: string
+      waktu_selesai:
+        example: "2026-10-01T21:10:00+07:00"
+        type: string
+    required:
+    - studio_id
+    type: object
+  schedule.PermintaanPerbaruiJadwal:
+    properties:
+      end_time:
+        example: "2026-10-01T22:10:00+07:00"
+        type: string
+      film_id:
+        example: 1
+        type: integer
+      movie_id:
+        example: 1
+        type: integer
+      start_time:
+        example: "2026-10-01T20:00:00+07:00"
+        type: string
+      studio_id:
+        example: 2
+        type: integer
+      waktu_mulai:
+        example: "2026-10-01T20:00:00+07:00"
+        type: string
+      waktu_selesai:
+        example: "2026-10-01T22:10:00+07:00"
+        type: string
+    required:
+    - studio_id
+    type: object
+  schedule.ResponsDaftarJadwal:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schedule.DTOJadwal'
+        type: array
+    type: object
+  schedule.ResponsGalat:
+    properties:
+      error:
+        $ref: '#/definitions/schedule.DetailGalat'
+    type: object
+  schedule.ResponsJadwalTunggal:
+    properties:
+      data:
+        $ref: '#/definitions/schedule.DTOJadwal'
+    type: object
+host: localhost:8088
+info:
+  contact: {}
+  description: Layanan Backend Pemesanan Tiket Bioskop Skala Nasional dengan Autentikasi
+    dan Manajemen Jadwal Tayang
+  title: API Sistem Tiket Bioskop
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Otentikasi pengguna menggunakan email dan kata sandi untuk memperoleh
+        token akses JWT
+      parameters:
+      - description: Kredensial login pengguna
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.PermintaanLogin'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.ResponsLogin'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.ResponsGalat'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.ResponsGalat'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/auth.ResponsGalat'
+      summary: Login pengguna
+      tags:
+      - Autentikasi
+  /schedules:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil seluruh daftar jadwal tayang film
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schedule.ResponsDaftarJadwal'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+      security:
+      - BearerAuth: []
+      summary: Ambil daftar jadwal tayang
+      tags:
+      - Jadwal
+    post:
+      consumes:
+      - application/json
+      description: Membuat jadwal tayang film baru (Khusus Admin)
+      parameters:
+      - description: Data jadwal tayang baru
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schedule.PermintaanBuatJadwal'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/schedule.ResponsJadwalTunggal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+      security:
+      - BearerAuth: []
+      summary: Buat jadwal tayang baru
+      tags:
+      - Jadwal
+  /schedules/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Membatalkan jadwal tayang secara logis (Khusus Admin)
+      parameters:
+      - description: ID Jadwal
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+      security:
+      - BearerAuth: []
+      summary: Batalkan jadwal tayang
+      tags:
+      - Jadwal
+    get:
+      consumes:
+      - application/json
+      description: Mengambil rincian informasi satu jadwal tayang berdasarkan ID
+      parameters:
+      - description: ID Jadwal
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schedule.ResponsJadwalTunggal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+      security:
+      - BearerAuth: []
+      summary: Ambil jadwal tayang berdasarkan ID
+      tags:
+      - Jadwal
+    put:
+      consumes:
+      - application/json
+      description: Memperbarui data jadwal tayang yang sudah ada (Khusus Admin)
+      parameters:
+      - description: ID Jadwal
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Data pembaruan jadwal
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schedule.PermintaanPerbaruiJadwal'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schedule.ResponsJadwalTunggal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/schedule.ResponsGalat'
+      security:
+      - BearerAuth: []
+      summary: Perbarui jadwal tayang
+      tags:
+      - Jadwal
+securityDefinitions:
+  BearerAuth:
+    description: Masukkan 'Bearer <token>' untuk otentikasi
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS tiket (
+    id BIGSERIAL PRIMARY KEY,
+    item_pesanan_id BIGINT NOT NULL REFERENCES item_pesanan(id) ON DELETE CASCADE,
+    kode_tiket VARCHAR(100) NOT NULL UNIQUE,
+    status VARCHAR(50) NOT NULL DEFAULT 'ISSUED',
+    diterbitkan_pada TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    dibatalkan_pada TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_tiket_kode ON tiket(kode_tiket);

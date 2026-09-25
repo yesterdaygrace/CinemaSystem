@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: bioskop_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-bioskop}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bioskop_dev}
+      POSTGRES_DB: ${DB_NAME:-bioskop}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - data_postgres_bioskop:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bioskop} -d ${DB_NAME:-bioskop}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  data_postgres_bioskop:

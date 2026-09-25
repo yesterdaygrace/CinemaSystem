@@ -1,0 +1,424 @@
+{
+	"info": {
+		"_postman_id": "c1n3ma-t1ck3t-syst3m-mkp-2026",
+		"name": "Cinema Ticket System - MKP Test",
+		"description": "Koleksi API Sistem Tiket Bioskop Skala Nasional untuk Technical Skill Test Tim MKP.\nMendukung Autentikasi JWT (Admin & Customer), Manajemen Jadwal Tayang, dan Proteksi Konflik Jadwal Studio (HTTP 409).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8088",
+			"type": "string"
+		},
+		{
+			"key": "adminToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "customerToken",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Health & Info",
+			"item": [
+				{
+					"name": "Pemeriksaan Kesehatan (Health Check)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "Memeriksa status hidup server backend"
+					},
+					"response": []
+				},
+				{
+					"name": "Info Rute Root (JSON Info)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/",
+							"host": ["{{baseUrl}}"],
+							"path": [""]
+						},
+						"description": "Mengambil ringkasan aplikasi dan link dokumentasi Swagger"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Autentikasi (Auth)",
+			"item": [
+				{
+					"name": "Login Admin (Simpan adminToken)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var data = pm.response.json();",
+									"if (data.access_token) {",
+									"    pm.collectionVariables.set('adminToken', data.access_token);",
+									"    console.log('adminToken tersimpan:', data.access_token);",
+									"}",
+									"pm.test('Status code 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Token access_token tersedia', function () {",
+									"    pm.expect(data.access_token).to.be.a('string');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Masuk sebagai Administrator sistem"
+					},
+					"response": []
+				},
+				{
+					"name": "Login Customer (Simpan customerToken)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var data = pm.response.json();",
+									"if (data.access_token) {",
+									"    pm.collectionVariables.set('customerToken', data.access_token);",
+									"    console.log('customerToken tersimpan:', data.access_token);",
+									"}",
+									"pm.test('Status code 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"customer@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Masuk sebagai Pelanggan (Customer)"
+					},
+					"response": []
+				},
+				{
+					"name": "Login Gagal (Password Salah - 401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code 401 Unauthorized', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"var data = pm.response.json();",
+									"pm.test('Kode galat INVALID_CREDENTIALS', function () {",
+									"    pm.expect(data.error.code).to.eql('INVALID_CREDENTIALS');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"salah_password\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Jadwal Tayang (Schedules)",
+			"item": [
+				{
+					"name": "Ambil Seluruh Jadwal (Customer / Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules"]
+						},
+						"description": "Melihat seluruh daftar jadwal tayang bioskop"
+					},
+					"response": []
+				},
+				{
+					"name": "Ambil Jadwal Berdasarkan ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Buat Jadwal Baru (Admin Only - 201 Created)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code 201 Created', function () {",
+									"    pm.response.to.have.status(201);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"movie_id\": 1,\n    \"studio_id\": 2,\n    \"start_time\": \"2027-02-20T14:00:00Z\",\n    \"end_time\": \"2027-02-20T16:15:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Uji Konflik Jadwal Bertabrakan (Expect 409 Conflict)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code 409 Conflict', function () {",
+									"    pm.response.to.have.status(409);",
+									"});",
+									"var data = pm.response.json();",
+									"pm.test('Kode SCHEDULE_CONFLICT', function () {",
+									"    pm.expect(data.error.code).to.eql('SCHEDULE_CONFLICT');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"movie_id\": 2,\n    \"studio_id\": 2,\n    \"start_time\": \"2027-02-20T15:00:00Z\",\n    \"end_time\": \"2027-02-20T17:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules"]
+						},
+						"description": "Menguji pencegahan tumpang tindih waktu penayangan pada studio yang sama"
+					},
+					"response": []
+				},
+				{
+					"name": "Uji Customer Dilarang Buat Jadwal (Expect 403 Forbidden)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code 403 Forbidden', function () {",
+									"    pm.response.to.have.status(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{customerToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"movie_id\": 1,\n    \"studio_id\": 1,\n    \"start_time\": \"2027-05-10T19:00:00Z\",\n    \"end_time\": \"2027-05-10T21:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Perbarui Jadwal (Admin Only - 200 OK)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"movie_id\": 1,\n    \"studio_id\": 1,\n    \"start_time\": \"2026-10-01T19:00:00+07:00\",\n    \"end_time\": \"2026-10-01T21:40:00+07:00\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Batalkan Jadwal / Soft Delete (Admin Only - 204 No Content)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code 204 No Content', function () {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/schedules/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "schedules", "1"]
+						},
+						"description": "Membatalkan jadwal tayang secara logis (status CANCELLED) tanpa menghapus data"
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

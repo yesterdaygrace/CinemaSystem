@@ -1,0 +1,26 @@
+# Binaries
+/bin/
+/dist/
+main
+api
+
+# Environment variables
+.env
+
+# Go workspace & test artifacts
+*.test
+*.out
+coverage.html
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS artifacts
+.DS_Store
+
+# Temporary files
+tmp/
+scratch/

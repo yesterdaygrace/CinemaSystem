@@ -1,0 +1,584 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Layanan Backend Pemesanan Tiket Bioskop Skala Nasional dengan Autentikasi dan Manajemen Jadwal Tayang",
+        "title": "API Sistem Tiket Bioskop",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8088",
+    "basePath": "/api/v1",
+    "paths": {
+        "/auth/login": {
+            "post": {
+                "description": "Otentikasi pengguna menggunakan email dan kata sandi untuk memperoleh token akses JWT",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Autentikasi"
+                ],
+                "summary": "Login pengguna",
+                "parameters": [
+                    {
+                        "description": "Kredensial login pengguna",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.PermintaanLogin"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.ResponsLogin"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/auth.ResponsGalat"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/auth.ResponsGalat"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/auth.ResponsGalat"
+                        }
+                    }
+                }
+            }
+        },
+        "/schedules": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil seluruh daftar jadwal tayang film",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Jadwal"
+                ],
+                "summary": "Ambil daftar jadwal tayang",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsDaftarJadwal"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Membuat jadwal tayang film baru (Khusus Admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Jadwal"
+                ],
+                "summary": "Buat jadwal tayang baru",
+                "parameters": [
+                    {
+                        "description": "Data jadwal tayang baru",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schedule.PermintaanBuatJadwal"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsJadwalTunggal"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    }
+                }
+            }
+        },
+        "/schedules/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil rincian informasi satu jadwal tayang berdasarkan ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Jadwal"
+                ],
+                "summary": "Ambil jadwal tayang berdasarkan ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Jadwal",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsJadwalTunggal"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Memperbarui data jadwal tayang yang sudah ada (Khusus Admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Jadwal"
+                ],
+                "summary": "Perbarui jadwal tayang",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Jadwal",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Data pembaruan jadwal",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schedule.PermintaanPerbaruiJadwal"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsJadwalTunggal"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Membatalkan jadwal tayang secara logis (Khusus Admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Jadwal"
+                ],
+                "summary": "Batalkan jadwal tayang",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Jadwal",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/schedule.ResponsGalat"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "auth.DetailGalat": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "INVALID_CREDENTIALS"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Invalid email or password"
+                }
+            }
+        },
+        "auth.PermintaanLogin": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "admin@example.com"
+                },
+                "kata_sandi": {
+                    "type": "string",
+                    "example": "password123"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "password123"
+                }
+            }
+        },
+        "auth.ResponsGalat": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/auth.DetailGalat"
+                }
+            }
+        },
+        "auth.ResponsLogin": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "expires_in": {
+                    "type": "integer",
+                    "example": 86400
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "Bearer"
+                }
+            }
+        },
+        "schedule.DTOJadwal": {
+            "type": "object",
+            "properties": {
+                "end_time": {
+                    "type": "string",
+                    "example": "2026-10-01T21:10:00+07:00"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "movie_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2026-10-01T19:00:00+07:00"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "SCHEDULED"
+                },
+                "studio_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "schedule.DetailGalat": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "SCHEDULE_NOT_FOUND"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Schedule not found"
+                }
+            }
+        },
+        "schedule.PermintaanBuatJadwal": {
+            "type": "object",
+            "required": [
+                "studio_id"
+            ],
+            "properties": {
+                "end_time": {
+                    "type": "string",
+                    "example": "2026-10-01T21:10:00+07:00"
+                },
+                "film_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "movie_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2026-10-01T19:00:00+07:00"
+                },
+                "studio_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "waktu_mulai": {
+                    "type": "string",
+                    "example": "2026-10-01T19:00:00+07:00"
+                },
+                "waktu_selesai": {
+                    "type": "string",
+                    "example": "2026-10-01T21:10:00+07:00"
+                }
+            }
+        },
+        "schedule.PermintaanPerbaruiJadwal": {
+            "type": "object",
+            "required": [
+                "studio_id"
+            ],
+            "properties": {
+                "end_time": {
+                    "type": "string",
+                    "example": "2026-10-01T22:10:00+07:00"
+                },
+                "film_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "movie_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2026-10-01T20:00:00+07:00"
+                },
+                "studio_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "waktu_mulai": {
+                    "type": "string",
+                    "example": "2026-10-01T20:00:00+07:00"
+                },
+                "waktu_selesai": {
+                    "type": "string",
+                    "example": "2026-10-01T22:10:00+07:00"
+                }
+            }
+        },
+        "schedule.ResponsDaftarJadwal": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schedule.DTOJadwal"
+                    }
+                }
+            }
+        },
+        "schedule.ResponsGalat": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/schedule.DetailGalat"
+                }
+            }
+        },
+        "schedule.ResponsJadwalTunggal": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/schedule.DTOJadwal"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Masukkan 'Bearer \u003ctoken\u003e' untuk otentikasi",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}
