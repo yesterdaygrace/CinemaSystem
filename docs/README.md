@@ -157,71 +157,76 @@ cinema-ticket-system/
 └── go.sum
 ```
 
-## 5. Dokumentasi
+## 5. Indeks Berkas & Dokumentasi
 
-| File | Isi |
-|---|---|
-| `docs/A-system-design.md` | Jawaban System Design Test |
-| `docs/B-database-design.md` | Jawaban Database Design Test |
-| `docs/C-api-spec.md` | Kontrak API implementasi |
-| `docs/diagrams/system-flow.md` | Flowchart utama |
-| `docs/diagrams/booking-flow.md` | Flow pemilihan dan penguncian kursi |
-| `docs/diagrams/refund-flow.md` | Flow pembatalan dan refund |
-| `docs/diagrams/erd.md` | ERD |
+| File | Tipe | Deskripsi |
+|---|---|---|
+| [`A-system-design.md`](A-system-design.md) | Jawaban Soal A | Analisis System Design, arsitektur, concurrency seat-locking, restok, & refund |
+| [`B-database-design.md`](B-database-design.md) | Jawaban Soal B | Analisis skema 13 tabel relasional, normalisasi 3NF, dan strategi indexing |
+| [`C-api-spec.md`](C-api-spec.md) | Jawaban Soal C | Kontrak spesifikasi API Golang (Auth JWT & CRUD Jadwal Tayang) |
+| [`system-topology.jpg`](system-topology.jpg) | Diagram Gambar | Topologi arsitektur cloud skala nasional resolusi tinggi (150 DPI) |
+| [`database-erd.jpg`](database-erd.jpg) | Diagram Gambar | Entity Relationship Diagram (ERD) visual 13 tabel relasional |
+| [`flowchart-pemesanan.jpg`](flowchart-pemesanan.jpg) | Diagram Gambar | Flowchart alur pemesanan, restok tiket otomatis, dan pembatalan refund |
+| [`skema_dan_data_awal_bioskop.sql`](skema_dan_data_awal_bioskop.sql) | SQL Script | Skrip DDL PostgreSQL 13 tabel dan data awal seeder siap impor |
+| [`Cinema_Ticket_System.postman_collection.json`](Cinema_Ticket_System.postman_collection.json) | Koleksi Postman | Export Postman Collection v2.1 siap pakai dengan script auto-token |
+| [`diagrams/system-flow.md`](diagrams/system-flow.md) | Mermaid Diagram | Flowchart alur sistem utama pemesanan |
+| [`diagrams/booking-flow.md`](diagrams/booking-flow.md) | Mermaid Diagram | Flowchart konkurensi penguncian kursi (seat locking) |
+| [`diagrams/refund-flow.md`](diagrams/refund-flow.md) | Mermaid Diagram | Flowchart pembatalan jadwal dan alur pengembalian dana |
+| [`diagrams/erd.md`](diagrams/erd.md) | Mermaid Diagram | Skrip diagram ERD berbasis teks Mermaid |
+| [`swagger/`](swagger/) | OpenAPI Spec | Berkas spesifikasi interaktif Swagger (JSON, YAML, Go) |
 
-## 6. Running the Project
+## 6. Menjalankan Proyek
 
-### Prerequisites
+### Prasyarat
 
-- Go
-- Docker
-- Docker Compose
-- golang-migrate
-- Swag CLI
+- Go 1.22+
+- Docker & Docker Compose
 
-### Start PostgreSQL
+### 1. Jalankan PostgreSQL via Docker
 
 ```bash
 docker compose up -d
 ```
 
-Check:
+Verifikasi kontainer:
 
 ```bash
 docker compose ps
 ```
 
-### Configure environment
+### 2. Konfigurasi Variabel Lingkungan
 
 ```bash
 cp .env.example .env
 ```
 
-### Run migration
+### 3. Jalankan Migrasi Database & Seeder Data Awal
 
 ```bash
-migrate \
-  -path migrations \
-  -database "postgres://cinema:cinema_dev@localhost:5432/cinema?sslmode=disable" \
-  up
+go run cmd/migrate/main.go -seed
+```
+*Atau alternatif via skrip SQL mandiri:*
+```bash
+psql -h localhost -p 5432 -U bioskop -d bioskop -f docs/skema_dan_data_awal_bioskop.sql
 ```
 
-### Run API
+### 4. Jalankan Server API
 
 ```bash
-go run ./cmd/api
+go run cmd/api/main.go
+```
+*Server aktif di `http://localhost:8088`. Buka browser untuk Swagger UI otomatis: `http://localhost:8088/swagger/index.html`*
+
+### 5. Jalankan Seluruh Automated Tests
+
+```bash
+go test -v -race -count=1 ./...
 ```
 
-### Run tests
+### 6. Regenerasi Dokumentasi Swagger (Opsional)
 
 ```bash
-go test ./...
-```
-
-### Generate Swagger
-
-```bash
-swag init -g cmd/api/main.go
+swag init -g cmd/api/main.go -o docs/swagger
 ```
 
 ## 7. Design Principles
