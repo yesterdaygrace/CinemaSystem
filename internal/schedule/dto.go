@@ -5,185 +5,95 @@ import (
 	"time"
 )
 
-// DTOJadwal merepresentasikan payload satu jadwal tayang dalam respons API.
-type DTOJadwal struct {
-	ID           int64     `json:"id" example:"1"`
-	MovieID      int64     `json:"movie_id" example:"1"`
-	StudioID     int64     `json:"studio_id" example:"1"`
-	StartTime    time.Time `json:"start_time" example:"2026-10-01T19:00:00+07:00"`
-	EndTime      time.Time `json:"end_time" example:"2026-10-01T21:10:00+07:00"`
-	Status       string    `json:"status" example:"SCHEDULED"`
+// ScheduleDTO represents a single schedule payload in API responses.
+type ScheduleDTO struct {
+	ID        int64     `json:"id" example:"1"`
+	MovieID   int64     `json:"movie_id" example:"1"`
+	StudioID  int64     `json:"studio_id" example:"1"`
+	StartTime time.Time `json:"start_time" example:"2026-10-01T19:00:00+07:00"`
+	EndTime   time.Time `json:"end_time" example:"2026-10-01T21:10:00+07:00"`
+	Status    string    `json:"status" example:"SCHEDULED"`
 }
 
-// ScheduleDTO adalah alias untuk DTOJadwal.
-type ScheduleDTO = DTOJadwal
-
-// DariModel mengonversi entitas model Jadwal menjadi DTOJadwal.
-func DariModel(j *Jadwal) DTOJadwal {
-	return DTOJadwal{
-		ID:        j.ID,
-		MovieID:   j.FilmID,
-		StudioID:  j.StudioID,
-		StartTime: j.WaktuMulai,
-		EndTime:   j.WaktuSelesai,
-		Status:    j.Status,
+// FromModel converts a Schedule database model entity into a ScheduleDTO.
+func FromModel(scheduleRecord *Schedule) ScheduleDTO {
+	return ScheduleDTO{
+		ID:        scheduleRecord.ID,
+		MovieID:   scheduleRecord.MovieID,
+		StudioID:  scheduleRecord.StudioID,
+		StartTime: scheduleRecord.StartTime,
+		EndTime:   scheduleRecord.EndTime,
+		Status:    scheduleRecord.Status,
 	}
 }
 
-// FromModel adalah alias untuk DariModel.
-func FromModel(s *Schedule) ScheduleDTO {
-	return DariModel(s)
+// SingleScheduleResponse wraps a single schedule item in a standard JSON response.
+type SingleScheduleResponse struct {
+	Data ScheduleDTO `json:"data"`
 }
 
-// ResponsJadwalTunggal membungkus satu jadwal dalam respons JSON.
-type ResponsJadwalTunggal struct {
-	Data DTOJadwal `json:"data"`
+// ListScheduleResponse wraps a slice of schedule items in a standard JSON response.
+type ListScheduleResponse struct {
+	Data []ScheduleDTO `json:"data"`
 }
 
-// SingleScheduleResponse adalah alias untuk ResponsJadwalTunggal.
-type SingleScheduleResponse = ResponsJadwalTunggal
-
-// ResponsDaftarJadwal membungkus daftar jadwal tayang dalam respons JSON.
-type ResponsDaftarJadwal struct {
-	Data []DTOJadwal `json:"data"`
+// CreateScheduleRequest defines the payload for creating a new schedule.
+type CreateScheduleRequest struct {
+	MovieID   int64     `json:"movie_id" binding:"required,gt=0" example:"1"`
+	StudioID  int64     `json:"studio_id" binding:"required,gt=0" example:"1"`
+	StartTime time.Time `json:"start_time" binding:"required" example:"2026-10-01T19:00:00+07:00"`
+	EndTime   time.Time `json:"end_time" binding:"required" example:"2026-10-01T21:10:00+07:00"`
 }
 
-// ListScheduleResponse adalah alias untuk ResponsDaftarJadwal.
-type ListScheduleResponse = ResponsDaftarJadwal
-
-// PermintaanBuatJadwal mendefinisikan payload untuk pembuatan jadwal tayang.
-type PermintaanBuatJadwal struct {
-	MovieID      int64     `json:"movie_id" example:"1"`
-	FilmID       int64     `json:"film_id" example:"1"`
-	StudioID     int64     `json:"studio_id" binding:"required,gt=0" example:"1"`
-	StartTime    time.Time `json:"start_time" example:"2026-10-01T19:00:00+07:00"`
-	WaktuMulai   time.Time `json:"waktu_mulai" example:"2026-10-01T19:00:00+07:00"`
-	EndTime      time.Time `json:"end_time" example:"2026-10-01T21:10:00+07:00"`
-	WaktuSelesai time.Time `json:"waktu_selesai" example:"2026-10-01T21:10:00+07:00"`
-}
-
-func (r *PermintaanBuatJadwal) AmbilFilmID() int64 {
-	if r.FilmID > 0 {
-		return r.FilmID
+// Validate checks business rules on the create schedule payload.
+func (request *CreateScheduleRequest) Validate() error {
+	if request.MovieID <= 0 {
+		return errors.New("movie_id must be greater than 0")
 	}
-	return r.MovieID
-}
-
-func (r *PermintaanBuatJadwal) AmbilWaktuMulai() time.Time {
-	if !r.WaktuMulai.IsZero() {
-		return r.WaktuMulai
+	if request.StudioID <= 0 {
+		return errors.New("studio_id must be greater than 0")
 	}
-	return r.StartTime
-}
-
-func (r *PermintaanBuatJadwal) AmbilWaktuSelesai() time.Time {
-	if !r.WaktuSelesai.IsZero() {
-		return r.WaktuSelesai
+	if request.StartTime.IsZero() || request.EndTime.IsZero() {
+		return errors.New("start_time and end_time are required")
 	}
-	return r.EndTime
-}
-
-// Validasi memeriksa aturan bisnis pada data pembuatan jadwal.
-func (r *PermintaanBuatJadwal) Validasi() error {
-	filmID := r.AmbilFilmID()
-	if filmID <= 0 {
-		return errors.New("movie_id atau film_id harus lebih besar dari 0")
-	}
-	if r.StudioID <= 0 {
-		return errors.New("studio_id harus lebih besar dari 0")
-	}
-	mulai := r.AmbilWaktuMulai()
-	selesai := r.AmbilWaktuSelesai()
-	if mulai.IsZero() || selesai.IsZero() {
-		return errors.New("waktu_mulai dan waktu_selesai wajib diisi")
-	}
-	if !selesai.After(mulai) {
+	if !request.EndTime.After(request.StartTime) {
 		return errors.New("end_time must be after start_time")
 	}
 	return nil
 }
 
-// Validate adalah alias untuk Validasi.
-func (r *PermintaanBuatJadwal) Validate() error {
-	return r.Validasi()
+// UpdateScheduleRequest defines the payload for updating an existing schedule.
+type UpdateScheduleRequest struct {
+	MovieID   int64     `json:"movie_id" binding:"required,gt=0" example:"1"`
+	StudioID  int64     `json:"studio_id" binding:"required,gt=0" example:"2"`
+	StartTime time.Time `json:"start_time" binding:"required" example:"2026-10-01T20:00:00+07:00"`
+	EndTime   time.Time `json:"end_time" binding:"required" example:"2026-10-01T22:10:00+07:00"`
 }
 
-// CreateScheduleRequest adalah alias untuk PermintaanBuatJadwal.
-type CreateScheduleRequest = PermintaanBuatJadwal
-
-// PermintaanPerbaruiJadwal mendefinisikan payload untuk pembaruan jadwal tayang.
-type PermintaanPerbaruiJadwal struct {
-	MovieID      int64     `json:"movie_id" example:"1"`
-	FilmID       int64     `json:"film_id" example:"1"`
-	StudioID     int64     `json:"studio_id" binding:"required,gt=0" example:"2"`
-	StartTime    time.Time `json:"start_time" example:"2026-10-01T20:00:00+07:00"`
-	WaktuMulai   time.Time `json:"waktu_mulai" example:"2026-10-01T20:00:00+07:00"`
-	EndTime      time.Time `json:"end_time" example:"2026-10-01T22:10:00+07:00"`
-	WaktuSelesai time.Time `json:"waktu_selesai" example:"2026-10-01T22:10:00+07:00"`
-}
-
-func (r *PermintaanPerbaruiJadwal) AmbilFilmID() int64 {
-	if r.FilmID > 0 {
-		return r.FilmID
+// Validate checks business rules on the update schedule payload.
+func (request *UpdateScheduleRequest) Validate() error {
+	if request.MovieID <= 0 {
+		return errors.New("movie_id must be greater than 0")
 	}
-	return r.MovieID
-}
-
-func (r *PermintaanPerbaruiJadwal) AmbilWaktuMulai() time.Time {
-	if !r.WaktuMulai.IsZero() {
-		return r.WaktuMulai
+	if request.StudioID <= 0 {
+		return errors.New("studio_id must be greater than 0")
 	}
-	return r.StartTime
-}
-
-func (r *PermintaanPerbaruiJadwal) AmbilWaktuSelesai() time.Time {
-	if !r.WaktuSelesai.IsZero() {
-		return r.WaktuSelesai
+	if request.StartTime.IsZero() || request.EndTime.IsZero() {
+		return errors.New("start_time and end_time are required")
 	}
-	return r.EndTime
-}
-
-// Validasi memeriksa aturan bisnis pada data pembaruan jadwal.
-func (r *PermintaanPerbaruiJadwal) Validasi() error {
-	filmID := r.AmbilFilmID()
-	if filmID <= 0 {
-		return errors.New("movie_id atau film_id harus lebih besar dari 0")
-	}
-	if r.StudioID <= 0 {
-		return errors.New("studio_id harus lebih besar dari 0")
-	}
-	mulai := r.AmbilWaktuMulai()
-	selesai := r.AmbilWaktuSelesai()
-	if mulai.IsZero() || selesai.IsZero() {
-		return errors.New("waktu_mulai dan waktu_selesai wajib diisi")
-	}
-	if !selesai.After(mulai) {
+	if !request.EndTime.After(request.StartTime) {
 		return errors.New("end_time must be after start_time")
 	}
 	return nil
 }
 
-// Validate adalah alias untuk Validasi.
-func (r *PermintaanPerbaruiJadwal) Validate() error {
-	return r.Validasi()
-}
-
-// UpdateScheduleRequest adalah alias untuk PermintaanPerbaruiJadwal.
-type UpdateScheduleRequest = PermintaanPerbaruiJadwal
-
-// DetailGalat mendefinisikan informasi rincian kode galat dan pesan.
-type DetailGalat struct {
+// ErrorDetail defines detailed error information for API responses.
+type ErrorDetail struct {
 	Code    string `json:"code" example:"SCHEDULE_NOT_FOUND"`
 	Message string `json:"message" example:"Schedule not found"`
 }
 
-// ErrorDetail adalah alias untuk DetailGalat.
-type ErrorDetail = DetailGalat
-
-// ResponsGalat mendefinisikan amplop respons error standar.
-type ResponsGalat struct {
-	Error DetailGalat `json:"error"`
+// ErrorResponse wraps the standard API error response payload.
+type ErrorResponse struct {
+	Error ErrorDetail `json:"error"`
 }
-
-// ErrorResponse adalah alias untuk ResponsGalat.
-type ErrorResponse = ResponsGalat

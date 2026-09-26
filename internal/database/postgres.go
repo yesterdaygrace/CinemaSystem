@@ -11,40 +11,40 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// HubungkanDatabase membangun koneksi GORM ke PostgreSQL menggunakan konfigurasi yang diberikan
-// dan mengonfigurasi kolam koneksi database (connection pool).
-func HubungkanDatabase(konfig *config.Konfigurasi) (*gorm.DB, error) {
-	tingkatLog := logger.Warn
-	if konfig.Lingkungan == "development" {
-		tingkatLog = logger.Info
+// Connect establishes a GORM connection to PostgreSQL using the provided configuration
+// and configures the database connection pool settings.
+func Connect(configuration *config.Config) (*gorm.DB, error) {
+	logLevel := logger.Warn
+	if configuration.Environment == "development" {
+		logLevel = logger.Info
 	}
 
-	db, galat := gorm.Open(postgres.Open(konfig.DSN()), &gorm.Config{
-		Logger: logger.Default.LogMode(tingkatLog),
+	databaseConnection, connectionError := gorm.Open(postgres.Open(configuration.DSN()), &gorm.Config{
+		Logger: logger.Default.LogMode(logLevel),
 	})
-	if galat != nil {
-		return nil, fmt.Errorf("gagal terhubung ke database: %w", galat)
+	if connectionError != nil {
+		return nil, fmt.Errorf("failed to connect to PostgreSQL database: %w", connectionError)
 	}
 
-	sqlDB, galat := db.DB()
-	if galat != nil {
-		return nil, fmt.Errorf("gagal mendapatkan objek sql.DB: %w", galat)
+	genericSQLDatabase, databaseError := databaseConnection.DB()
+	if databaseError != nil {
+		return nil, fmt.Errorf("failed to retrieve generic sql.DB handle: %w", databaseError)
 	}
 
-	// Konfigurasi kolam koneksi (connection pool)
-	sqlDB.SetMaxOpenConns(konfig.MaksKoneksiTerbukaDB)
-	sqlDB.SetMaxIdleConns(konfig.MaksKoneksiMenganggurDB)
-	sqlDB.SetConnMaxLifetime(konfig.MaksMasaKoneksiDB)
+	// Configure connection pooling
+	genericSQLDatabase.SetMaxOpenConns(configuration.DatabaseMaxOpenConnections)
+	genericSQLDatabase.SetMaxIdleConns(configuration.DatabaseMaxIdleConnections)
+	genericSQLDatabase.SetConnMaxLifetime(configuration.DatabaseConnectionMaxLifetime)
 
-	if galat := sqlDB.Ping(); galat != nil {
-		return nil, fmt.Errorf("gagal melakukan ping ke database: %w", galat)
+	if pingError := genericSQLDatabase.Ping(); pingError != nil {
+		return nil, fmt.Errorf("failed to ping PostgreSQL database: %w", pingError)
 	}
 
-	log.Println("Berhasil terhubung ke basis data PostgreSQL")
-	return db, nil
+	log.Println("Successfully connected to PostgreSQL database")
+	return databaseConnection, nil
 }
 
-// Connect adalah alias pemanggil untuk HubungkanDatabase.
-func Connect(cfg *config.Config) (*gorm.DB, error) {
-	return HubungkanDatabase(cfg)
+// ConnectDatabase is an alias for Connect.
+func ConnectDatabase(configuration *config.Config) (*gorm.DB, error) {
+	return Connect(configuration)
 }

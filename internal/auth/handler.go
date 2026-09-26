@@ -7,63 +7,55 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// HandlerAutentikasi menangani request HTTP untuk modul autentikasi.
-type HandlerAutentikasi struct {
-	layanan LayananAutentikasi
+// AuthHandler handles HTTP requests for authentication.
+type AuthHandler struct {
+	authService AuthService
 }
 
-// Handler adalah alias untuk HandlerAutentikasi.
-type Handler = HandlerAutentikasi
-
-// BaruHandler menginisialisasi handler autentikasi baru.
-func BaruHandler(layanan LayananAutentikasi) *HandlerAutentikasi {
-	return &HandlerAutentikasi{layanan: layanan}
+// NewHandler initializes a new AuthHandler with the given service.
+func NewHandler(authService AuthService) *AuthHandler {
+	return &AuthHandler{authService: authService}
 }
 
-// NewHandler adalah alias konstruktor untuk BaruHandler.
-func NewHandler(service Service) *HandlerAutentikasi {
-	return BaruHandler(service)
-}
-
-// Login godoc
-// @Summary Login pengguna
-// @Description Otentikasi pengguna menggunakan email dan kata sandi untuk memperoleh token akses JWT
-// @Tags Autentikasi
+// Login handles user authentication via email and password.
+// @Summary User login
+// @Description Authenticate user using email and password to obtain a JWT access token
+// @Tags Authentication
 // @Accept json
 // @Produce json
-// @Param request body PermintaanLogin true "Kredensial login pengguna"
-// @Success 200 {object} ResponsLogin
-// @Failure 400 {object} ResponsGalat
-// @Failure 401 {object} ResponsGalat
-// @Failure 500 {object} ResponsGalat
+// @Param request body LoginRequest true "User login credentials"
+// @Success 200 {object} LoginResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /auth/login [post]
-func (h *HandlerAutentikasi) Login(c *gin.Context) {
-	var permintaan PermintaanLogin
-	if galat := c.ShouldBindJSON(&permintaan); galat != nil {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+func (handler *AuthHandler) Login(ginContext *gin.Context) {
+	var requestPayload LoginRequest
+	if bindingError := ginContext.ShouldBindJSON(&requestPayload); bindingError != nil {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: "Format email tidak valid atau field wajib belum diisi",
+				Message: "Invalid email format or missing required fields",
 			},
 		})
 		return
 	}
 
-	if permintaan.KataSandiEfektif() == "" {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+	if requestPayload.EffectivePassword() == "" {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: "Kata sandi wajib diisi",
+				Message: "Password is required",
 			},
 		})
 		return
 	}
 
-	respons, galat := h.layanan.Login(c.Request.Context(), permintaan)
-	if galat != nil {
-		if errors.Is(galat, GalatKredensialTidakValid) {
-			c.JSON(http.StatusUnauthorized, ResponsGalat{
-				Error: DetailGalat{
+	loginResponse, authenticationError := handler.authService.Login(ginContext.Request.Context(), requestPayload)
+	if authenticationError != nil {
+		if errors.Is(authenticationError, ErrInvalidCredentials) {
+			ginContext.JSON(http.StatusUnauthorized, ErrorResponse{
+				Error: ErrorDetail{
 					Code:    "INVALID_CREDENTIALS",
 					Message: "Invalid email or password",
 				},
@@ -71,14 +63,14 @@ func (h *HandlerAutentikasi) Login(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, ResponsGalat{
-			Error: DetailGalat{
+		ginContext.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INTERNAL_ERROR",
-				Message: "Terjadi kesalahan internal pada server",
+				Message: "Internal server error occurred",
 			},
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, respons)
+	ginContext.JSON(http.StatusOK, loginResponse)
 }

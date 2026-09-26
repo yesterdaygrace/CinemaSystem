@@ -8,87 +8,74 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// HandlerJadwal menangani seluruh request HTTP untuk modul jadwal tayang.
-type HandlerJadwal struct {
-	layanan LayananJadwal
+// ScheduleHandler handles all HTTP requests for movie screening schedules.
+type ScheduleHandler struct {
+	scheduleService ScheduleService
 }
 
-// Handler adalah alias untuk HandlerJadwal.
-type Handler = HandlerJadwal
-
-// BaruHandler mengembalikan instance baru HandlerJadwal.
-func BaruHandler(layanan LayananJadwal) *HandlerJadwal {
-	return &HandlerJadwal{layanan: layanan}
+// NewHandler initializes a new ScheduleHandler instance.
+func NewHandler(scheduleService ScheduleService) *ScheduleHandler {
+	return &ScheduleHandler{scheduleService: scheduleService}
 }
 
-// NewHandler adalah alias konstruktor untuk BaruHandler.
-func NewHandler(service Service) *HandlerJadwal {
-	return BaruHandler(service)
-}
-
-// Daftar godoc
-// @Summary Ambil daftar jadwal tayang
-// @Description Mengambil seluruh daftar jadwal tayang film
-// @Tags Jadwal
+// List handles retrieving all movie schedules.
+// @Summary Get schedule list
+// @Description Retrieve all movie screening schedules
+// @Tags Schedules
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} ResponsDaftarJadwal
-// @Failure 401 {object} ResponsGalat
-// @Failure 500 {object} ResponsGalat
+// @Success 200 {object} ListScheduleResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /schedules [get]
-func (h *HandlerJadwal) Daftar(c *gin.Context) {
-	daftarJadwal, galat := h.layanan.DaftarJadwal(c.Request.Context())
-	if galat != nil {
-		c.JSON(http.StatusInternalServerError, ResponsGalat{
-			Error: DetailGalat{
+func (handler *ScheduleHandler) List(ginContext *gin.Context) {
+	scheduleList, serviceError := handler.scheduleService.ListSchedules(ginContext.Request.Context())
+	if serviceError != nil {
+		ginContext.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INTERNAL_ERROR",
-				Message: "Gagal mengambil daftar jadwal tayang",
+				Message: "Failed to retrieve schedule list",
 			},
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, ResponsDaftarJadwal{Data: daftarJadwal})
+	ginContext.JSON(http.StatusOK, ListScheduleResponse{Data: scheduleList})
 }
 
-// List adalah alias pemanggil untuk Daftar.
-func (h *HandlerJadwal) List(c *gin.Context) {
-	h.Daftar(c)
-}
-
-// AmbilBerdasarkanID godoc
-// @Summary Ambil jadwal tayang berdasarkan ID
-// @Description Mengambil rincian informasi satu jadwal tayang berdasarkan ID
-// @Tags Jadwal
+// GetByID handles retrieving a single schedule by ID.
+// @Summary Get schedule by ID
+// @Description Retrieve detailed information for a single screening schedule
+// @Tags Schedules
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path int true "ID Jadwal"
-// @Success 200 {object} ResponsJadwalTunggal
-// @Failure 400 {object} ResponsGalat
-// @Failure 401 {object} ResponsGalat
-// @Failure 404 {object} ResponsGalat
-// @Failure 500 {object} ResponsGalat
+// @Param id path int true "Schedule ID"
+// @Success 200 {object} SingleScheduleResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /schedules/{id} [get]
-func (h *HandlerJadwal) AmbilBerdasarkanID(c *gin.Context) {
-	idStr := c.Param("id")
-	id, galat := strconv.ParseInt(idStr, 10, 64)
-	if galat != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+func (handler *ScheduleHandler) GetByID(ginContext *gin.Context) {
+	idParameterString := ginContext.Param("id")
+	scheduleIdentifier, parsingError := strconv.ParseInt(idParameterString, 10, 64)
+	if parsingError != nil || scheduleIdentifier <= 0 {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: "Format ID jadwal tidak valid",
+				Message: "Invalid schedule ID parameter format",
 			},
 		})
 		return
 	}
 
-	jadwal, galat := h.layanan.AmbilJadwal(c.Request.Context(), id)
-	if galat != nil {
-		if errors.Is(galat, GalatJadwalTidakDitemukan) {
-			c.JSON(http.StatusNotFound, ResponsGalat{
-				Error: DetailGalat{
+	scheduleDTO, serviceError := handler.scheduleService.GetSchedule(ginContext.Request.Context(), scheduleIdentifier)
+	if serviceError != nil {
+		if errors.Is(serviceError, ErrScheduleNotFound) {
+			ginContext.JSON(http.StatusNotFound, ErrorResponse{
+				Error: ErrorDetail{
 					Code:    "SCHEDULE_NOT_FOUND",
 					Message: "Schedule not found",
 				},
@@ -96,65 +83,60 @@ func (h *HandlerJadwal) AmbilBerdasarkanID(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, ResponsGalat{
-			Error: DetailGalat{
+		ginContext.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INTERNAL_ERROR",
-				Message: "Gagal mengambil jadwal",
+				Message: "Failed to retrieve schedule",
 			},
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, ResponsJadwalTunggal{Data: *jadwal})
+	ginContext.JSON(http.StatusOK, SingleScheduleResponse{Data: *scheduleDTO})
 }
 
-// GetByID adalah alias pemanggil untuk AmbilBerdasarkanID.
-func (h *HandlerJadwal) GetByID(c *gin.Context) {
-	h.AmbilBerdasarkanID(c)
-}
-
-// Buat godoc
-// @Summary Buat jadwal tayang baru
-// @Description Membuat jadwal tayang film baru (Khusus Admin)
-// @Tags Jadwal
+// Create handles creating a new screening schedule (Admin only).
+// @Summary Create a new schedule
+// @Description Create a new movie screening schedule (Admin only)
+// @Tags Schedules
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body PermintaanBuatJadwal true "Data jadwal tayang baru"
-// @Success 201 {object} ResponsJadwalTunggal
-// @Failure 400 {object} ResponsGalat
-// @Failure 401 {object} ResponsGalat
-// @Failure 403 {object} ResponsGalat
-// @Failure 409 {object} ResponsGalat
-// @Failure 500 {object} ResponsGalat
+// @Param request body CreateScheduleRequest true "New schedule payload"
+// @Success 201 {object} SingleScheduleResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /schedules [post]
-func (h *HandlerJadwal) Buat(c *gin.Context) {
-	var permintaan PermintaanBuatJadwal
-	if galat := c.ShouldBindJSON(&permintaan); galat != nil {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+func (handler *ScheduleHandler) Create(ginContext *gin.Context) {
+	var requestPayload CreateScheduleRequest
+	if bindingError := ginContext.ShouldBindJSON(&requestPayload); bindingError != nil {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: "Input payload tidak valid atau format waktu bukan RFC3339",
+				Message: "Invalid request payload or time format is not RFC3339",
 			},
 		})
 		return
 	}
 
-	if galat := permintaan.Validasi(); galat != nil {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+	if validationError := requestPayload.Validate(); validationError != nil {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: galat.Error(),
+				Message: validationError.Error(),
 			},
 		})
 		return
 	}
 
-	jadwalBaru, galat := h.layanan.BuatJadwal(c.Request.Context(), permintaan)
-	if galat != nil {
-		if errors.Is(galat, GalatKonflikJadwal) {
-			c.JSON(http.StatusConflict, ResponsGalat{
-				Error: DetailGalat{
+	createdScheduleDTO, serviceError := handler.scheduleService.CreateSchedule(ginContext.Request.Context(), requestPayload)
+	if serviceError != nil {
+		if errors.Is(serviceError, ErrScheduleConflict) {
+			ginContext.JSON(http.StatusConflict, ErrorResponse{
+				Error: ErrorDetail{
 					Code:    "SCHEDULE_CONFLICT",
 					Message: "Studio already has an overlapping schedule",
 				},
@@ -162,88 +144,83 @@ func (h *HandlerJadwal) Buat(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, ResponsGalat{
-			Error: DetailGalat{
+		ginContext.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INTERNAL_ERROR",
-				Message: "Gagal membuat jadwal baru",
+				Message: "Failed to create schedule",
 			},
 		})
 		return
 	}
 
-	c.JSON(http.StatusCreated, ResponsJadwalTunggal{Data: *jadwalBaru})
+	ginContext.JSON(http.StatusCreated, SingleScheduleResponse{Data: *createdScheduleDTO})
 }
 
-// Create adalah alias pemanggil untuk Buat.
-func (h *HandlerJadwal) Create(c *gin.Context) {
-	h.Buat(c)
-}
-
-// Perbarui godoc
-// @Summary Perbarui jadwal tayang
-// @Description Memperbarui data jadwal tayang yang sudah ada (Khusus Admin)
-// @Tags Jadwal
+// Update handles updating an existing screening schedule (Admin only).
+// @Summary Update schedule
+// @Description Update an existing screening schedule (Admin only)
+// @Tags Schedules
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path int true "ID Jadwal"
-// @Param request body PermintaanPerbaruiJadwal true "Data pembaruan jadwal"
-// @Success 200 {object} ResponsJadwalTunggal
-// @Failure 400 {object} ResponsGalat
-// @Failure 401 {object} ResponsGalat
-// @Failure 403 {object} ResponsGalat
-// @Failure 404 {object} ResponsGalat
-// @Failure 409 {object} ResponsGalat
-// @Failure 500 {object} ResponsGalat
+// @Param id path int true "Schedule ID"
+// @Param request body UpdateScheduleRequest true "Updated schedule payload"
+// @Success 200 {object} SingleScheduleResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /schedules/{id} [put]
-func (h *HandlerJadwal) Perbarui(c *gin.Context) {
-	idStr := c.Param("id")
-	id, galat := strconv.ParseInt(idStr, 10, 64)
-	if galat != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+func (handler *ScheduleHandler) Update(ginContext *gin.Context) {
+	idParameterString := ginContext.Param("id")
+	scheduleIdentifier, parsingError := strconv.ParseInt(idParameterString, 10, 64)
+	if parsingError != nil || scheduleIdentifier <= 0 {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: "Format ID jadwal tidak valid",
+				Message: "Invalid schedule ID parameter format",
 			},
 		})
 		return
 	}
 
-	var permintaan PermintaanPerbaruiJadwal
-	if galat := c.ShouldBindJSON(&permintaan); galat != nil {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+	var requestPayload UpdateScheduleRequest
+	if bindingError := ginContext.ShouldBindJSON(&requestPayload); bindingError != nil {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: "Input payload tidak valid atau format waktu bukan RFC3339",
+				Message: "Invalid request payload or time format is not RFC3339",
 			},
 		})
 		return
 	}
 
-	if galat := permintaan.Validasi(); galat != nil {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+	if validationError := requestPayload.Validate(); validationError != nil {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: galat.Error(),
+				Message: validationError.Error(),
 			},
 		})
 		return
 	}
 
-	jadwalDiperbarui, galat := h.layanan.PerbaruiJadwal(c.Request.Context(), id, permintaan)
-	if galat != nil {
-		if errors.Is(galat, GalatJadwalTidakDitemukan) {
-			c.JSON(http.StatusNotFound, ResponsGalat{
-				Error: DetailGalat{
+	updatedScheduleDTO, serviceError := handler.scheduleService.UpdateSchedule(ginContext.Request.Context(), scheduleIdentifier, requestPayload)
+	if serviceError != nil {
+		if errors.Is(serviceError, ErrScheduleNotFound) {
+			ginContext.JSON(http.StatusNotFound, ErrorResponse{
+				Error: ErrorDetail{
 					Code:    "SCHEDULE_NOT_FOUND",
 					Message: "Schedule not found",
 				},
 			})
 			return
 		}
-		if errors.Is(galat, GalatKonflikJadwal) {
-			c.JSON(http.StatusConflict, ResponsGalat{
-				Error: DetailGalat{
+		if errors.Is(serviceError, ErrScheduleConflict) {
+			ginContext.JSON(http.StatusConflict, ErrorResponse{
+				Error: ErrorDetail{
 					Code:    "SCHEDULE_CONFLICT",
 					Message: "Studio already has an overlapping schedule",
 				},
@@ -251,55 +228,50 @@ func (h *HandlerJadwal) Perbarui(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, ResponsGalat{
-			Error: DetailGalat{
+		ginContext.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INTERNAL_ERROR",
-				Message: "Gagal memperbarui jadwal",
+				Message: "Failed to update schedule",
 			},
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, ResponsJadwalTunggal{Data: *jadwalDiperbarui})
+	ginContext.JSON(http.StatusOK, SingleScheduleResponse{Data: *updatedScheduleDTO})
 }
 
-// Update adalah alias pemanggil untuk Perbarui.
-func (h *HandlerJadwal) Update(c *gin.Context) {
-	h.Perbarui(c)
-}
-
-// Hapus godoc
-// @Summary Batalkan jadwal tayang
-// @Description Membatalkan jadwal tayang secara logis (Khusus Admin)
-// @Tags Jadwal
+// Delete handles logically cancelling a screening schedule (Admin only).
+// @Summary Cancel schedule
+// @Description Logically cancel a screening schedule (Admin only)
+// @Tags Schedules
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path int true "ID Jadwal"
+// @Param id path int true "Schedule ID"
 // @Success 204 "No Content"
-// @Failure 400 {object} ResponsGalat
-// @Failure 401 {object} ResponsGalat
-// @Failure 403 {object} ResponsGalat
-// @Failure 404 {object} ResponsGalat
-// @Failure 500 {object} ResponsGalat
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /schedules/{id} [delete]
-func (h *HandlerJadwal) Hapus(c *gin.Context) {
-	idStr := c.Param("id")
-	id, galat := strconv.ParseInt(idStr, 10, 64)
-	if galat != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, ResponsGalat{
-			Error: DetailGalat{
+func (handler *ScheduleHandler) Delete(ginContext *gin.Context) {
+	idParameterString := ginContext.Param("id")
+	scheduleIdentifier, parsingError := strconv.ParseInt(idParameterString, 10, 64)
+	if parsingError != nil || scheduleIdentifier <= 0 {
+		ginContext.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INVALID_REQUEST",
-				Message: "Format ID jadwal tidak valid",
+				Message: "Invalid schedule ID parameter format",
 			},
 		})
 		return
 	}
 
-	if galat := h.layanan.BatalkanJadwal(c.Request.Context(), id); galat != nil {
-		if errors.Is(galat, GalatJadwalTidakDitemukan) {
-			c.JSON(http.StatusNotFound, ResponsGalat{
-				Error: DetailGalat{
+	if serviceError := handler.scheduleService.CancelSchedule(ginContext.Request.Context(), scheduleIdentifier); serviceError != nil {
+		if errors.Is(serviceError, ErrScheduleNotFound) {
+			ginContext.JSON(http.StatusNotFound, ErrorResponse{
+				Error: ErrorDetail{
 					Code:    "SCHEDULE_NOT_FOUND",
 					Message: "Schedule not found",
 				},
@@ -307,19 +279,14 @@ func (h *HandlerJadwal) Hapus(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, ResponsGalat{
-			Error: DetailGalat{
+		ginContext.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: ErrorDetail{
 				Code:    "INTERNAL_ERROR",
-				Message: "Gagal membatalkan jadwal",
+				Message: "Failed to cancel schedule",
 			},
 		})
 		return
 	}
 
-	c.Status(http.StatusNoContent)
-}
-
-// Delete adalah alias pemanggil untuk Hapus.
-func (h *HandlerJadwal) Delete(c *gin.Context) {
-	h.Hapus(c)
+	ginContext.Status(http.StatusNoContent)
 }

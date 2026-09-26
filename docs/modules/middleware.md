@@ -1,58 +1,58 @@
-# Modul Middleware (`internal/middleware`)
+# Middleware Module (`internal/middleware`)
 
-Direktori `internal/middleware` berfungsi sebagai lapisan penjaga gerbang (*gatekeeper*) pada HTTP pipeline framework Gin. Modul ini bertanggung jawab memverifikasi identitas pengguna (autentikasi) dan menegakkan kontrol hak akses berbasis peran (otorisasi / Role-Based Access Control).
+The `internal/middleware` directory acts as the gatekeeper layer for the Gin HTTP pipeline. It is responsible for user identity verification (authentication) and enforcing role-based access control (RBAC authorization).
 
 ---
 
-## 1. Daftar Berkas & Peran Masing-Masing
+## 1. File Catalog & Architectural Roles
 
-| Nama Berkas | Lapisan (Layer) | Peran & Tanggung Jawab Utama |
+| File Name | Layer | Primary Responsibility |
 |---|---|---|
-| [`auth.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth.go) | **HTTP Interceptor / Guard** | Menyediakan dua middleware Gin utama: <br>1. `AutentikasiJWT`: Memvalidasi header `Authorization: Bearer <token>`, mengurai klaim JWT, serta menyuntikkan `userID` dan `userRole` ke konteks Gin.<br>2. `WajibPeran`: Memeriksa peran pengguna di konteks Gin dan menolak akses jika peran tidak terdaftar dalam daftar izin. |
-| [`auth_test.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth_test.go) | **Integration / Unit Test** | Menguji pipeline HTTP secara menyeluruh menggunakan `net/http/httptest` dan Gin router pada 4 skenario keamanan: ketiadaan token (401), token valid (200), pelanggaran hak akses peran (403), dan akses peran yang sah (201). |
+| [`auth.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth.go) | **HTTP Interceptor / Guard** | Provides two core Gin middlewares: <br>1. `JWTMiddleware`: Validates header `Authorization: Bearer <token>`, decodes JWT claims, and injects `userID` and `userRole` into the Gin request context.<br>2. `RequireRoles` / `RequireRole`: Inspects the user's role stored in the Gin context and denies access if the role is not authorized. |
+| [`auth_test.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth_test.go) | **Integration / Unit Test** | Thoroughly tests the HTTP pipeline using `net/http/httptest` and Gin router across 4 core security test cases: missing token (401), valid token (200), role permission violation (403), and authorized administrative access (201). |
 
 ---
 
-## 2. Rincian Teknis Per Berkas
+## 2. Technical Details per File
 
 ### A. [`auth.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth.go)
 
-#### 1. Konstanta Kunci Konteks Gin
+#### 1. Gin Context Key Constants
 ```go
 const (
-    KunciKonteksIDPengguna    = "userID"
-    KunciKonteksPeranPengguna = "userRole"
+    ContextKeyUserID   = "userID"
+    ContextKeyUserRole = "userRole"
 )
 ```
-Konstanta ini digunakan sebagai *key* untuk menyimpan dan mengambil data pengguna pada `gin.Context` (`c.Set()` dan `c.Get()`).
+These constants serve as keys for storing and extracting authenticated user metadata in `gin.Context` (`c.Set()` and `c.Get()`).
 
-#### 2. Fungsi `AutentikasiJWT(rahasia string) gin.HandlerFunc` (Alias: `JWTAuth`)
-Alur kerja middleware autentikasi:
-1. **Pemeriksaan Header**:
-   - Membaca header HTTP `Authorization`.
-   - Jika kosong, request dihentikan (`c.AbortWithStatusJSON(401)`) dengan kode galat `UNAUTHORIZED` ("Authorization header is required").
-2. **Pemeriksaan Format**:
-   - Memecah string dengan spasi (`strings.SplitN(headerOtorisasi, " ", 2)`).
-   - Memastikan terdiri dari 2 bagian dan bagian pertama adalah `Bearer` (tidak sensitif huruf besar/kecil via `strings.EqualFold`).
-   - Jika tidak cocok, request dihentikan dengan status 401 dan pesan "Invalid authorization header format. Expected 'Bearer <token>'".
-3. **Validasi Kriptografi Token**:
-   - Memanggil `auth.ValidasiToken(stringToken, rahasia)`.
-   - Jika token kedaluwarsa atau tandatangan tidak sah, request dihentikan dengan HTTP 401 (`INVALID_TOKEN`).
-4. **Ekstraksi Identitas Pengguna**:
-   - Mengambil klaim `Subject` (`klaim.Subject`) dan mengonversinya menjadi integer 64-bit (`strconv.ParseInt(..., 10, 64)`).
-   - Menyimpan hasil ke dalam konteks Gin:
-     - `c.Set(KunciKonteksIDPengguna, idPengguna)`
-     - `c.Set(KunciKonteksPeranPengguna, klaim.Peran)`
-5. **Penerusan Request**:
-   - Memanggil `c.Next()` untuk melanjutkan eksekusi ke handler berikutnya.
+#### 2. Function `JWTMiddleware(secret string) gin.HandlerFunc`
+Authentication middleware execution workflow:
+1. **Header Inspection**:
+   - Reads the HTTP `Authorization` header.
+   - If empty, the request terminates immediately (`c.AbortWithStatusJSON(401)`) with error code `UNAUTHORIZED` ("Authorization header is required").
+2. **Format Inspection**:
+   - Splits header string by whitespace (`strings.SplitN(authHeader, " ", 2)`).
+   - Verifies 2 parts are present and the first part is `Bearer` (case-insensitive check via `strings.EqualFold`).
+   - If mismatched, aborts with HTTP 401 and message "Invalid authorization header format. Expected 'Bearer <token>'".
+3. **Cryptographic Token Verification**:
+   - Invokes `auth.ValidateToken(tokenString, secret)`.
+   - If the token is expired or the HMAC signature is invalid, aborts with HTTP 401 (`INVALID_TOKEN`).
+4. **User Identity Extraction**:
+   - Extracts `claims.Subject` and converts it to a 64-bit integer (`strconv.ParseInt(..., 10, 64)`).
+   - Injects the extracted identity into the Gin context:
+     - `c.Set(ContextKeyUserID, userID)`
+     - `c.Set(ContextKeyUserRole, claims.Role)`
+5. **Pipeline Continuation**:
+   - Calls `c.Next()` to continue execution down the handler chain.
 
-#### 3. Fungsi `WajibPeran(peranDiizinkan ...string) gin.HandlerFunc` (Alias: `RequireRoles`)
-Alur kerja middleware otorisasi (RBAC):
-1. Mengubah daftar `peranDiizinkan` menjadi *lookup map* (`map[string]bool`) untuk pencarian bernilai O(1).
-2. Mengambil peran pengguna dari konteks Gin (`c.Get(KunciKonteksPeranPengguna)`).
-3. Jika nilai peran belum ada di konteks (artinya endpoint ini belum dilewatkan ke middleware `AutentikasiJWT`), request dihentikan dengan HTTP 401 (`UNAUTHORIZED: Authentication required`).
-4. Memeriksa apakah peran pengguna cocok dengan map izin:
-   - Jika tidak memiliki izin (misal peran `CUSTOMER` mencoba mengakses rute khusus `ADMIN`), eksekusi diputus dengan status HTTP 403 Forbidden:
+#### 3. Function `RequireRoles(allowedRoles ...string) gin.HandlerFunc`
+Authorization middleware execution workflow (RBAC):
+1. Converts the list of `allowedRoles` into a lookup map (`map[string]bool`) for O(1) membership checks.
+2. Retrieves the current user's role from the Gin context (`c.Get(ContextKeyUserRole)`).
+3. If the role is missing from context (meaning the endpoint was not wrapped with `JWTMiddleware`), aborts with HTTP 401 (`UNAUTHORIZED: Authentication required`).
+4. Validates whether the user's role is in the allowed map:
+   - If unauthorized (e.g. A `CUSTOMER` attempting to execute an `ADMIN`-only route), execution terminates with HTTP 403 Forbidden:
      ```json
      {
        "error": {
@@ -61,83 +61,83 @@ Alur kerja middleware otorisasi (RBAC):
        }
      }
      ```
-5. Jika memiliki izin, memanggil `c.Next()`.
+5. If authorized, calls `c.Next()`.
 
 ---
 
 ### B. [`auth_test.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth_test.go)
 
-Berkas ini menguji integrasi antara `internal/auth` dan `internal/middleware` menggunakan router Gin dalam `TestMode`:
+Tests the integration between `internal/auth` and `internal/middleware` using Gin router in `TestMode`:
 
 ```mermaid
 flowchart TD
-    subgraph TestSuite ["Skenario Uji TestMiddlewareAuthAndRoles"]
-        T1["1. Request GET tanpa Token"] -->|Ekspektasi| R1["HTTP 401 Unauthorized"]
-        T2["2. Request GET dengan Token Valid (Customer)"] -->|Ekspektasi| R2["HTTP 200 OK"]
-        T3["3. Request POST ke /admin-only dengan Token Customer"] -->|Ekspektasi| R3["HTTP 403 Forbidden (Code: FORBIDDEN)"]
-        T4["4. Request POST ke /admin-only dengan Token Admin"] -->|Ekspektasi| R4["HTTP 201 Created"]
+    subgraph TestSuite ["Test Scenarios: TestMiddlewareAuthAndRoles"]
+        T1["1. GET Request without Token"] -->|Expected| R1["HTTP 401 Unauthorized"]
+        T2["2. GET Request with Valid Customer Token"] -->|Expected| R2["HTTP 200 OK"]
+        T3["3. POST Request to /admin-only with Customer Token"] -->|Expected| R3["HTTP 403 Forbidden (Code: FORBIDDEN)"]
+        T4["4. POST Request to /admin-only with Admin Token"] -->|Expected| R4["HTTP 201 Created"]
     end
 ```
 
 ---
 
-## 3. Hubungan Antarberkas di Dalam `internal/middleware`
+## 3. Internal Module Relationships
 
-- [`auth_test.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth_test.go) bertindak sebagai *consumer* langsung dari fungsi yang dideklarasikan di [`auth.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth.go).
-- Keduanya berbagi pemahaman yang sama terhadap kontrak konteks Gin (`KunciKonteksIDPengguna` dan `KunciKonteksPeranPengguna`).
+- [`auth_test.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth_test.go) directly tests and exercises the functions declared in [`auth.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/middleware/auth.go).
+- Both files share the same context contract constants (`ContextKeyUserID` and `ContextKeyUserRole`).
 
 ---
 
-## 4. Hubungan dengan Berkas & Direktori Lain
+## 4. Cross-Module Relationships & External Dependencies
 
 ```mermaid
 flowchart LR
-    AuthConfig["internal/config<br/>(RahasiaJWT)"] --> Main["cmd/api/main.go"]
+    AuthConfig["internal/config<br/>(JWTSecret)"] --> Main["cmd/api/main.go"]
     
     subgraph MiddlewareModule ["internal/middleware"]
-        AuthMW["auth.go<br/>(AutentikasiJWT, WajibPeran)"]
+        AuthMW["auth.go<br/>(JWTMiddleware, RequireRole)"]
     end
 
     subgraph AuthModule ["internal/auth"]
-        JWTUtil["jwt.go<br/>(ValidasiToken)"]
-        AuthModel["model.go<br/>(ResponsGalat, PeranAdmin)"]
+        JWTUtil["jwt.go<br/>(ValidateToken)"]
+        AuthModel["model.go<br/>(ErrorResponse, RoleAdmin)"]
     end
 
     subgraph ScheduleModule ["internal/schedule"]
-        ScheduleH["handler.go<br/>(Daftar, Buat, Perbarui, Hapus)"]
+        ScheduleH["handler.go<br/>(List, Create, Update, Delete)"]
     end
 
-    Main -->|Mengonfigurasi| AuthMW
-    AuthMW -->|Memverifikasi token via| JWTUtil
-    AuthMW -->|Mengembalikan format galat| AuthModel
-    AuthMW -->|Menggunakan konstanta peran| AuthModel
-    Main -->|Melindungi rute| ScheduleH
+    Main -->|Configures| AuthMW
+    AuthMW -->|Verifies token via| JWTUtil
+    AuthMW -->|Returns error envelope| AuthModel
+    AuthMW -->|Validates role constants| AuthModel
+    Main -->|Guards routes| ScheduleH
 ```
 
-1. **Keterkaitan Erat dengan `internal/auth`**:
-   - `internal/middleware` **secara eksplisit mengimpor** `cinema-ticket-system/internal/auth`.
-   - Bergantung pada `auth.ValidasiToken()` untuk mengecek keaslian signature dan mengekstrak klaim pengguna.
-   - Bergantung pada `auth.ResponsGalat` dan `auth.DetailGalat` untuk memastikan format JSON respon saat gagal autentikasi/otorisasi identik dengan standar API sistem.
-   - Bergantung pada konstanta `auth.RoleAdmin` dan `auth.RoleCustomer`.
-2. **Keterkaitan dengan `cmd/api/main.go`**:
-   - Di `cmd/api/main.go`, middleware ini dipasang pada grup rute API v1:
+1. **Direct Coupling with `internal/auth`**:
+   - `internal/middleware` **explicitly imports** `cinema-ticket-system/internal/auth`.
+   - Relies on `auth.ValidateToken()` to verify signature integrity and decode user claims.
+   - Relies on `auth.ErrorResponse` and `auth.ErrorDetail` to guarantee uniform API error envelopes.
+   - Relies on constants `auth.RoleAdmin` and `auth.RoleCustomer`.
+2. **Integration in `cmd/api/main.go`**:
+   - In `cmd/api/main.go`, the middleware is mounted on the v1 API route group:
      ```go
-     // Rute terproteksi JWT untuk seluruh jadwal
-     terproteksi := v1.Group("")
-     terproteksi.Use(middleware.AutentikasiJWT(konfigurasi.RahasiaJWT))
+     // Protected routes accessible to all authenticated users
+     protected := v1.Group("")
+     protected.Use(middleware.JWTMiddleware(cfg.JWTSecret))
      {
-         terproteksi.GET("/schedules", handlerJadwal.Daftar)
-         terproteksi.GET("/schedules/:id", handlerJadwal.AmbilBerdasarkanID)
+         protected.GET("/schedules", scheduleHandler.List)
+         protected.GET("/schedules/:id", scheduleHandler.GetByID)
 
-         // Pembatasan rute mutasi jadwal khusus Admin
-         khususAdmin := terproteksi.Group("")
-         khususAdmin.Use(middleware.WajibPeran(auth.PeranAdmin))
+         // Administrative mutation routes
+         adminOnly := protected.Group("")
+         adminOnly.Use(middleware.RequireRole(auth.RoleAdmin))
          {
-             khususAdmin.POST("/schedules", handlerJadwal.Buat)
-             khususAdmin.PUT("/schedules/:id", handlerJadwal.Perbarui)
-             khususAdmin.DELETE("/schedules/:id", handlerJadwal.Hapus)
+             adminOnly.POST("/schedules", scheduleHandler.Create)
+             adminOnly.PUT("/schedules/:id", scheduleHandler.Update)
+             adminOnly.DELETE("/schedules/:id", scheduleHandler.Delete)
          }
      }
      ```
-3. **Keterkaitan dengan `internal/schedule`**:
-   - Handler jadwal pada `internal/schedule` tidak perlu lagi melakukan parsing token JWT manual atau pengecekan peran berulang kali di setiap fungsi; seluruh tanggung jawab keamanan ditangani terlebih dahulu oleh `internal/middleware`.
+3. **Decoupling `internal/schedule`**:
+   - Schedule handlers in `internal/schedule` do not need manual token parsing or repetitive permission checks; all authentication and authorization guarantees are enforced beforehand by `internal/middleware`.

@@ -10,24 +10,19 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-// JalankanMigrasi mengeksekusi semua migrasi 'up' dari jalur berkas ke basis data.
-func JalankanMigrasi(urlDB string, jalurMigrasi string) error {
-	urlSumber := fmt.Sprintf("file://%s", jalurMigrasi)
-	instansiMigrasi, galat := migrate.New(urlSumber, urlDB)
-	if galat != nil {
-		return fmt.Errorf("gagal menginisialisasi migrasi: %w", galat)
+// RunMigrations executes all pending 'up' SQL migrations from the file path to the database.
+func RunMigrations(databaseURL string, migrationPath string) error {
+	sourceURL := fmt.Sprintf("file://%s", migrationPath)
+	migrationInstance, initializationError := migrate.New(sourceURL, databaseURL)
+	if initializationError != nil {
+		return fmt.Errorf("failed to initialize migration instance: %w", initializationError)
 	}
-	defer instansiMigrasi.Close()
+	defer migrationInstance.Close()
 
-	if galat := instansiMigrasi.Up(); galat != nil && !errors.Is(galat, migrate.ErrNoChange) {
-		return fmt.Errorf("gagal menerapkan migrasi: %w", galat)
+	if migrationError := migrationInstance.Up(); migrationError != nil && !errors.Is(migrationError, migrate.ErrNoChange) {
+		return fmt.Errorf("failed to apply migrations: %w", migrationError)
 	}
 
-	log.Println("Migrasi basis data berhasil diterapkan")
+	log.Println("Database migrations applied successfully")
 	return nil
-}
-
-// RunMigrations adalah alias untuk JalankanMigrasi.
-func RunMigrations(dbURL string, migrationsPath string) error {
-	return JalankanMigrasi(dbURL, migrationsPath)
 }

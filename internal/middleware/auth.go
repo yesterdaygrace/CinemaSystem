@@ -11,20 +11,17 @@ import (
 )
 
 const (
-	KunciKonteksIDPengguna    = "userID"
-	KunciKonteksPeranPengguna = "userRole"
-
-	CtxUserIDKey   = KunciKonteksIDPengguna
-	CtxUserRoleKey = KunciKonteksPeranPengguna
+	ContextUserIDKey   = "userID"
+	ContextUserRoleKey = "userRole"
 )
 
-// AutentikasiJWT memvalidasi token Bearer pada header Authorization.
-func AutentikasiJWT(rahasia string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		headerOtorisasi := c.GetHeader("Authorization")
-		if headerOtorisasi == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, auth.ResponsGalat{
-				Error: auth.DetailGalat{
+// JWTAuth validates the Bearer token in the Authorization header.
+func JWTAuth(jwtSecretKey string) gin.HandlerFunc {
+	return func(ginContext *gin.Context) {
+		authorizationHeader := ginContext.GetHeader("Authorization")
+		if authorizationHeader == "" {
+			ginContext.AbortWithStatusJSON(http.StatusUnauthorized, auth.ErrorResponse{
+				Error: auth.ErrorDetail{
 					Code:    "UNAUTHORIZED",
 					Message: "Authorization header is required",
 				},
@@ -32,10 +29,10 @@ func AutentikasiJWT(rahasia string) gin.HandlerFunc {
 			return
 		}
 
-		bagianHeader := strings.SplitN(headerOtorisasi, " ", 2)
-		if len(bagianHeader) != 2 || !strings.EqualFold(bagianHeader[0], "Bearer") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, auth.ResponsGalat{
-				Error: auth.DetailGalat{
+		headerParts := strings.SplitN(authorizationHeader, " ", 2)
+		if len(headerParts) != 2 || !strings.EqualFold(headerParts[0], "Bearer") {
+			ginContext.AbortWithStatusJSON(http.StatusUnauthorized, auth.ErrorResponse{
+				Error: auth.ErrorDetail{
 					Code:    "UNAUTHORIZED",
 					Message: "Invalid authorization header format. Expected 'Bearer <token>'",
 				},
@@ -43,11 +40,11 @@ func AutentikasiJWT(rahasia string) gin.HandlerFunc {
 			return
 		}
 
-		stringToken := bagianHeader[1]
-		klaim, galat := auth.ValidasiToken(stringToken, rahasia)
-		if galat != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, auth.ResponsGalat{
-				Error: auth.DetailGalat{
+		bearerTokenString := headerParts[1]
+		tokenClaims, tokenValidationError := auth.ValidateToken(bearerTokenString, jwtSecretKey)
+		if tokenValidationError != nil {
+			ginContext.AbortWithStatusJSON(http.StatusUnauthorized, auth.ErrorResponse{
+				Error: auth.ErrorDetail{
 					Code:    "INVALID_TOKEN",
 					Message: "Invalid or expired token",
 				},
@@ -55,10 +52,10 @@ func AutentikasiJWT(rahasia string) gin.HandlerFunc {
 			return
 		}
 
-		idPengguna, galat := strconv.ParseInt(klaim.Subject, 10, 64)
-		if galat != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, auth.ResponsGalat{
-				Error: auth.DetailGalat{
+		userIdentifier, parsingError := strconv.ParseInt(tokenClaims.Subject, 10, 64)
+		if parsingError != nil {
+			ginContext.AbortWithStatusJSON(http.StatusUnauthorized, auth.ErrorResponse{
+				Error: auth.ErrorDetail{
 					Code:    "INVALID_TOKEN",
 					Message: "Invalid token subject",
 				},
@@ -66,29 +63,34 @@ func AutentikasiJWT(rahasia string) gin.HandlerFunc {
 			return
 		}
 
-		c.Set(KunciKonteksIDPengguna, idPengguna)
-		c.Set(KunciKonteksPeranPengguna, klaim.Peran)
-		c.Next()
+		ginContext.Set(ContextUserIDKey, userIdentifier)
+		ginContext.Set(ContextUserRoleKey, tokenClaims.Role)
+		ginContext.Next()
 	}
 }
 
-// JWTAuth adalah alias pemanggil untuk AutentikasiJWT.
-func JWTAuth(secret string) gin.HandlerFunc {
-	return AutentikasiJWT(secret)
+// JWTMiddleware is an alias for JWTAuth.
+func JWTMiddleware(jwtSecretKey string) gin.HandlerFunc {
+	return JWTAuth(jwtSecretKey)
 }
 
-// WajibPeran membatasi akses endpoint hanya untuk peran yang ditentukan.
-func WajibPeran(peranDiizinkan ...string) gin.HandlerFunc {
-	petaPeran := make(map[string]bool)
-	for _, p := range peranDiizinkan {
-		petaPeran[p] = true
+// RequireRole is an alias for RequireRoles for single role guarding.
+func RequireRole(allowedRoles ...string) gin.HandlerFunc {
+	return RequireRoles(allowedRoles...)
+}
+
+// RequireRoles restricts endpoint access to only users with the specified roles.
+func RequireRoles(allowedRoles ...string) gin.HandlerFunc {
+	allowedRolesMap := make(map[string]bool)
+	for _, roleName := range allowedRoles {
+		allowedRolesMap[roleName] = true
 	}
 
-	return func(c *gin.Context) {
-		nilaiPeran, ada := c.Get(KunciKonteksPeranPengguna)
-		if !ada {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, auth.ResponsGalat{
-				Error: auth.DetailGalat{
+	return func(ginContext *gin.Context) {
+		roleValue, roleExists := ginContext.Get(ContextUserRoleKey)
+		if !roleExists {
+			ginContext.AbortWithStatusJSON(http.StatusUnauthorized, auth.ErrorResponse{
+				Error: auth.ErrorDetail{
 					Code:    "UNAUTHORIZED",
 					Message: "Authentication required",
 				},
@@ -96,10 +98,10 @@ func WajibPeran(peranDiizinkan ...string) gin.HandlerFunc {
 			return
 		}
 
-		peranPengguna, valid := nilaiPeran.(string)
-		if !valid || !petaPeran[peranPengguna] {
-			c.AbortWithStatusJSON(http.StatusForbidden, auth.ResponsGalat{
-				Error: auth.DetailGalat{
+		userRole, isRoleString := roleValue.(string)
+		if !isRoleString || !allowedRolesMap[userRole] {
+			ginContext.AbortWithStatusJSON(http.StatusForbidden, auth.ErrorResponse{
+				Error: auth.ErrorDetail{
 					Code:    "FORBIDDEN",
 					Message: "Insufficient permissions to access this resource",
 				},
@@ -107,11 +109,6 @@ func WajibPeran(peranDiizinkan ...string) gin.HandlerFunc {
 			return
 		}
 
-		c.Next()
+		ginContext.Next()
 	}
-}
-
-// RequireRoles adalah alias pemanggil untuk WajibPeran.
-func RequireRoles(allowedRoles ...string) gin.HandlerFunc {
-	return WajibPeran(allowedRoles...)
 }

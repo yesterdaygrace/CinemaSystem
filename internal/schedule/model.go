@@ -3,32 +3,40 @@ package schedule
 import "time"
 
 const (
-	StatusJadwal      = "SCHEDULED"
-	StatusDibatalkan  = "CANCELLED"
-	StatusSelesai     = "COMPLETED"
-
-	// Alias status
-	StatusScheduled = StatusJadwal
-	StatusCancelled = StatusDibatalkan
-	StatusCompleted = StatusSelesai
+	StatusScheduled = "SCHEDULED"
+	StatusCancelled = "CANCELLED"
+	StatusCompleted = "COMPLETED"
 )
 
-// Jadwal merepresentasikan tabel jadwal pada basis data PostgreSQL.
-type Jadwal struct {
-	ID            int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	FilmID        int64     `gorm:"column:film_id;not null;index" json:"movie_id"`
-	StudioID      int64     `gorm:"column:studio_id;not null;index" json:"studio_id"`
-	WaktuMulai    time.Time `gorm:"column:waktu_mulai;not null" json:"start_time"`
-	WaktuSelesai  time.Time `gorm:"column:waktu_selesai;not null" json:"end_time"`
-	Status        string    `gorm:"column:status;type:varchar(50);not null;default:'SCHEDULED'" json:"status"`
-	DibuatPada    time.Time `gorm:"column:dibuat_pada" json:"created_at,omitempty"`
-	DiperbaruiPada time.Time `gorm:"column:diperbarui_pada" json:"updated_at,omitempty"`
+// Schedule represents the 'jadwal' table in the PostgreSQL database.
+type Schedule struct {
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	MovieID   int64     `gorm:"column:film_id;not null;index" json:"movie_id"`
+	StudioID  int64     `gorm:"column:studio_id;not null;index" json:"studio_id"`
+	StartTime time.Time `gorm:"column:waktu_mulai;not null" json:"start_time"`
+	EndTime   time.Time `gorm:"column:waktu_selesai;not null" json:"end_time"`
+	Status    string    `gorm:"column:status;type:varchar(50);not null;default:'SCHEDULED'" json:"status"`
+	CreatedAt time.Time `gorm:"column:dibuat_pada" json:"created_at,omitempty"`
+	UpdatedAt time.Time `gorm:"column:diperbarui_pada" json:"updated_at,omitempty"`
 }
 
-// TableName menentukan nama tabel relasional GORM.
-func (Jadwal) TableName() string {
+// TableName defines the PostgreSQL table name for GORM.
+func (Schedule) TableName() string {
 	return "jadwal"
 }
 
-// Schedule adalah alias untuk Jadwal demi kompatibilitas.
-type Schedule = Jadwal
+// GetMovieID returns the movie identifier.
+func (schedule *Schedule) GetMovieID() int64 {
+	return schedule.MovieID
+}
+
+// GetStartTime returns the screening start timestamp.
+func (schedule *Schedule) GetStartTime() time.Time {
+	return schedule.StartTime
+}
+
+// GetEndTime returns the screening end timestamp.
+func (schedule *Schedule) GetEndTime() time.Time {
+	return schedule.EndTime
+}
+

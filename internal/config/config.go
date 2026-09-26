@@ -9,24 +9,23 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Konfigurasi menyimpan seluruh parameter konfigurasi aplikasi.
-type Konfigurasi struct {
-	Port                   string
-	Lingkungan             string
-	HostDB                 string
-	PortDB                 string
-	PenggunaDB             string
-	KataSandiDB            string
-	NamaDB                 string
-	ModeSSLDB              string
-	MaksKoneksiTerbukaDB   int
-	MaksKoneksiMenganggurDB int
-	MaksMasaKoneksiDB      time.Duration
-	RahasiaJWT             string
-	MasaBerlakuJWTJam      int
-	KedaluwarsaJWTJam      int
+// Config stores all application configuration parameters.
+type Config struct {
+	Port                          string
+	Environment                   string
+	DatabaseHost                  string
+	DatabasePort                  string
+	DatabaseUser                  string
+	DatabasePassword              string
+	DatabaseName                  string
+	DatabaseSSLMode               string
+	DatabaseMaxOpenConnections    int
+	DatabaseMaxIdleConnections    int
+	DatabaseConnectionMaxLifetime time.Duration
+	JWTSecretKey                  string
+	JWTExpirationHours            int
 
-	// Kompatibilitas alias field jika dibutuhkan
+	// Convenient short aliases
 	DBHost            string
 	DBPort            string
 	DBUser            string
@@ -41,92 +40,90 @@ type Konfigurasi struct {
 	Env               string
 }
 
-// Config adalah alias tipe untuk Konfigurasi demi kompatibilitas.
-type Config = Konfigurasi
-
-// MuatKonfigurasi memuat konfigurasi dari variabel lingkungan atau file .env.
-func MuatKonfigurasi() (*Konfigurasi, error) {
+// LoadConfig loads the configuration from environment variables or .env file.
+func LoadConfig() (*Config, error) {
 	_ = godotenv.Load()
 
-	maksKoneksiTerbuka := ambilEnvSebagaiInt("DB_MAX_OPEN_CONNS", 25)
-	maksKoneksiMenganggur := ambilEnvSebagaiInt("DB_MAX_IDLE_CONNS", 10)
-	masaKoneksiMenit := ambilEnvSebagaiInt("DB_CONN_MAX_LIFETIME_MINUTES", 5)
-	masaBerlakuJWT := ambilEnvSebagaiInt("JWT_EXPIRE_HOURS", 24)
+	maxOpenConnections := getEnvironmentVariableAsInteger("DB_MAX_OPEN_CONNS", 25)
+	maxIdleConnections := getEnvironmentVariableAsInteger("DB_MAX_IDLE_CONNS", 10)
+	connectionLifetimeMinutes := getEnvironmentVariableAsInteger("DB_CONN_MAX_LIFETIME_MINUTES", 5)
+	jwtExpirationHours := getEnvironmentVariableAsInteger("JWT_EXPIRE_HOURS", 24)
 
-	port := ambilEnv("PORT", "8088")
-	lingkungan := ambilEnv("ENV", "development")
-	hostDB := ambilEnv("DB_HOST", "localhost")
-	portDB := ambilEnv("DB_PORT", "5432")
-	penggunaDB := ambilEnv("DB_USER", "bioskop")
-	kataSandiDB := ambilEnv("DB_PASSWORD", "bioskop_dev")
-	namaDB := ambilEnv("DB_NAME", "bioskop")
-	modeSSLDB := ambilEnv("DB_SSLMODE", "disable")
-	rahasiaJWT := ambilEnv("JWT_SECRET", "kunci_rahasia_jwt_sistem_bioskop_2026")
+	serverPort := getEnvironmentVariable("PORT", "8088")
+	environmentName := getEnvironmentVariable("ENV", "development")
+	databaseHost := getEnvironmentVariable("DB_HOST", "localhost")
+	databasePort := getEnvironmentVariable("DB_PORT", "5432")
+	databaseUser := getEnvironmentVariable("DB_USER", "bioskop")
+	databasePassword := getEnvironmentVariable("DB_PASSWORD", "bioskop_dev")
+	databaseName := getEnvironmentVariable("DB_NAME", "bioskop")
+	databaseSSLMode := getEnvironmentVariable("DB_SSLMODE", "disable")
+	jwtSecretKey := getEnvironmentVariable("JWT_SECRET", "cinema_system_jwt_secret_key_2026")
 
-	durasiMasaKoneksi := time.Duration(masaKoneksiMenit) * time.Minute
+	connectionLifetimeDuration := time.Duration(connectionLifetimeMinutes) * time.Minute
 
-	konfig := &Konfigurasi{
-		Port:                    port,
-		Lingkungan:              lingkungan,
-		HostDB:                  hostDB,
-		PortDB:                  portDB,
-		PenggunaDB:              penggunaDB,
-		KataSandiDB:             kataSandiDB,
-		NamaDB:                  namaDB,
-		ModeSSLDB:               modeSSLDB,
-		MaksKoneksiTerbukaDB:    maksKoneksiTerbuka,
-		MaksKoneksiMenganggurDB: maksKoneksiMenganggur,
-		MaksMasaKoneksiDB:       durasiMasaKoneksi,
-		RahasiaJWT:              rahasiaJWT,
-		MasaBerlakuJWTJam:       masaBerlakuJWT,
-		KedaluwarsaJWTJam:       masaBerlakuJWT,
+	applicationConfig := &Config{
+		Port:                          serverPort,
+		Environment:                   environmentName,
+		DatabaseHost:                  databaseHost,
+		DatabasePort:                  databasePort,
+		DatabaseUser:                  databaseUser,
+		DatabasePassword:              databasePassword,
+		DatabaseName:                  databaseName,
+		DatabaseSSLMode:               databaseSSLMode,
+		DatabaseMaxOpenConnections:    maxOpenConnections,
+		DatabaseMaxIdleConnections:    maxIdleConnections,
+		DatabaseConnectionMaxLifetime: connectionLifetimeDuration,
+		JWTSecretKey:                  jwtSecretKey,
+		JWTExpirationHours:            jwtExpirationHours,
 
-		// Pemetaan nilai kompatibilitas
-		DBHost:            hostDB,
-		DBPort:            portDB,
-		DBUser:            penggunaDB,
-		DBPassword:        kataSandiDB,
-		DBName:            namaDB,
-		DBSSLMode:         modeSSLDB,
-		DBMaxOpenConns:    maksKoneksiTerbuka,
-		DBMaxIdleConns:    maksKoneksiMenganggur,
-		DBConnMaxLifetime: durasiMasaKoneksi,
-		JWTSecret:         rahasiaJWT,
-		JWTExpireHours:    masaBerlakuJWT,
-		Env:               lingkungan,
+		// Short aliases
+		DBHost:            databaseHost,
+		DBPort:            databasePort,
+		DBUser:            databaseUser,
+		DBPassword:        databasePassword,
+		DBName:            databaseName,
+		DBSSLMode:         databaseSSLMode,
+		DBMaxOpenConns:    maxOpenConnections,
+		DBMaxIdleConns:    maxIdleConnections,
+		DBConnMaxLifetime: connectionLifetimeDuration,
+		JWTSecret:         jwtSecretKey,
+		JWTExpireHours:    jwtExpirationHours,
+		Env:               environmentName,
 	}
 
-	return konfig, nil
+	return applicationConfig, nil
 }
 
-// LoadConfig adalah alias pemanggil untuk MuatKonfigurasi.
-func LoadConfig() (*Konfigurasi, error) {
-	return MuatKonfigurasi()
-}
-
-// DSN mengembalikan string sumber data PostgreSQL untuk GORM.
-func (k *Konfigurasi) DSN() string {
+// DSN returns the PostgreSQL Data Source Name string for GORM.
+func (configuration *Config) DSN() string {
 	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC",
-		k.HostDB, k.PenggunaDB, k.KataSandiDB, k.NamaDB, k.PortDB, k.ModeSSLDB)
+		configuration.DatabaseHost, configuration.DatabaseUser, configuration.DatabasePassword,
+		configuration.DatabaseName, configuration.DatabasePort, configuration.DatabaseSSLMode)
 }
 
-// URL mengembalikan format URI koneksi PostgreSQL standar.
-func (k *Konfigurasi) URL() string {
+// URL returns the standard PostgreSQL connection URI string.
+func (configuration *Config) URL() string {
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		k.PenggunaDB, k.KataSandiDB, k.HostDB, k.PortDB, k.NamaDB, k.ModeSSLDB)
+		configuration.DatabaseUser, configuration.DatabasePassword, configuration.DatabaseHost,
+		configuration.DatabasePort, configuration.DatabaseName, configuration.DatabaseSSLMode)
 }
 
-func ambilEnv(kunci, nilaiBawaan string) string {
-	if nilai, ada := os.LookupEnv(kunci); ada && nilai != "" {
-		return nilai
-	}
-	return nilaiBawaan
+// DatabaseURL returns the PostgreSQL connection URI.
+func (configuration *Config) DatabaseURL() string {
+	return configuration.URL()
 }
 
-func ambilEnvSebagaiInt(kunci string, nilaiBawaan int) int {
-	nilaiStr := ambilEnv(kunci, "")
-	if nilai, err := strconv.Atoi(nilaiStr); err == nil {
-		return nilai
+func getEnvironmentVariable(environmentKey, fallbackValue string) string {
+	if environmentValue, exists := os.LookupEnv(environmentKey); exists && environmentValue != "" {
+		return environmentValue
 	}
-	return nilaiBawaan
+	return fallbackValue
+}
+
+func getEnvironmentVariableAsInteger(environmentKey string, fallbackValue int) int {
+	environmentValueText := getEnvironmentVariable(environmentKey, "")
+	if integerValue, conversionError := strconv.Atoi(environmentValueText); conversionError == nil {
+		return integerValue
+	}
+	return fallbackValue
 }

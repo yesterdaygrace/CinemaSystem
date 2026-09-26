@@ -5,41 +5,41 @@ import (
 	"testing"
 )
 
-func TestJWTGenerateAndValidate(t *testing.T) {
-	kunciRahasia := "kunci_rahasia_tes_123456"
-	idPengguna := int64(42)
-	peran := PeranAdmin
+func TestJWTGenerateAndValidate(testRunner *testing.T) {
+	secretKey := "secret_key_test_123456"
+	userIdentifier := int64(42)
+	userRole := RoleAdmin
 
-	stringToken, detikKedaluwarsa, galat := BuatToken(idPengguna, peran, kunciRahasia, 24)
-	if galat != nil {
-		t.Fatalf("diharapkan tidak ada galat saat membuat token, diterima: %v", galat)
+	signedTokenString, expirationDurationInSeconds, tokenCreationError := GenerateToken(userIdentifier, userRole, secretKey, 24)
+	if tokenCreationError != nil {
+		testRunner.Fatalf("expected no error while creating token, got: %v", tokenCreationError)
 	}
 
-	if stringToken == "" {
-		t.Fatal("diharapkan token tidak kosong")
+	if signedTokenString == "" {
+		testRunner.Fatal("expected token string not to be empty")
 	}
 
-	if detikKedaluwarsa != 86400 {
-		t.Fatalf("diharapkan 86400 detik, diterima: %d", detikKedaluwarsa)
+	if expirationDurationInSeconds != 86400 {
+		testRunner.Fatalf("expected 86400 seconds, got: %d", expirationDurationInSeconds)
 	}
 
-	// Validasi token yang sah
-	klaim, galat := ValidasiToken(stringToken, kunciRahasia)
-	if galat != nil {
-		t.Fatalf("diharapkan validasi token berhasil, diterima: %v", galat)
+	// Validate valid token
+	validatedClaims, tokenValidationError := ValidateToken(signedTokenString, secretKey)
+	if tokenValidationError != nil {
+		testRunner.Fatalf("expected token validation to succeed, got: %v", tokenValidationError)
 	}
 
-	if klaim.Peran != peran {
-		t.Fatalf("diharapkan peran %s, diterima: %s", peran, klaim.Peran)
+	if validatedClaims.Role != userRole {
+		testRunner.Fatalf("expected role %s, got: %s", userRole, validatedClaims.Role)
 	}
 
-	if klaim.Subject != strconv.FormatInt(idPengguna, 10) {
-		t.Fatalf("diharapkan subjek %d, diterima: %s", idPengguna, klaim.Subject)
+	if validatedClaims.Subject != strconv.FormatInt(userIdentifier, 10) {
+		testRunner.Fatalf("expected subject %d, got: %s", userIdentifier, validatedClaims.Subject)
 	}
 
-	// Validasi token dengan rahasia salah
-	_, galat = ValidasiToken(stringToken, "kunci_rahasia_salah")
-	if galat == nil {
-		t.Fatal("diharapkan galat validasi dengan rahasia yang salah, diterima nil")
+	// Validate token with invalid secret key
+	_, invalidSecretError := ValidateToken(signedTokenString, "wrong_secret_key_123")
+	if invalidSecretError == nil {
+		testRunner.Fatal("expected validation error with invalid secret key, got nil")
 	}
 }

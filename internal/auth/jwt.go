@@ -10,70 +10,57 @@ import (
 )
 
 var (
-	GalatTokenTidakValid = errors.New("token tidak valid atau telah kedaluwarsa")
-	ErrInvalidToken      = GalatTokenTidakValid
+	// ErrInvalidToken is returned when a JWT token is invalid or expired.
+	ErrInvalidToken = errors.New("token is invalid or has expired")
 )
 
-// KlaimJWT membungkus klaim standar JWT beserta peran pengguna.
-type KlaimJWT struct {
-	Peran string `json:"role"`
+// JWTClaims wraps the registered JWT claims along with user role information.
+type JWTClaims struct {
+	Role string `json:"role"`
 	jwt.RegisteredClaims
 }
 
-// JWTClaims adalah alias untuk KlaimJWT.
-type JWTClaims = KlaimJWT
+// GenerateToken signs a new JWT token using HMAC-SHA256.
+func GenerateToken(userIdentifier int64, userRole string, secretKey string, expirationHours int) (string, int64, error) {
+	currentTime := time.Now().UTC()
+	expirationDurationInSeconds := int64(expirationHours * 3600)
+	expirationTimestamp := currentTime.Add(time.Duration(expirationHours) * time.Hour)
 
-// BuatToken menandatangani token JWT baru menggunakan HMAC-SHA256.
-func BuatToken(idPengguna int64, peran string, rahasia string, jamKedaluwarsa int) (string, int64, error) {
-	waktuSekarang := time.Now().UTC()
-	detikKedaluwarsa := int64(jamKedaluwarsa * 3600)
-	waktuKedaluwarsa := waktuSekarang.Add(time.Duration(jamKedaluwarsa) * time.Hour)
-
-	klaim := KlaimJWT{
-		Peran: peran,
+	claims := JWTClaims{
+		Role: userRole,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   strconv.FormatInt(idPengguna, 10),
-			IssuedAt:  jwt.NewNumericDate(waktuSekarang),
-			ExpiresAt: jwt.NewNumericDate(waktuKedaluwarsa),
+			Subject:   strconv.FormatInt(userIdentifier, 10),
+			IssuedAt:  jwt.NewNumericDate(currentTime),
+			ExpiresAt: jwt.NewNumericDate(expirationTimestamp),
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, klaim)
-	stringToken, galat := token.SignedString([]byte(rahasia))
-	if galat != nil {
-		return "", 0, fmt.Errorf("gagal menandatangani token: %w", galat)
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedTokenString, signingError := jwtToken.SignedString([]byte(secretKey))
+	if signingError != nil {
+		return "", 0, fmt.Errorf("failed to sign JWT token: %w", signingError)
 	}
 
-	return stringToken, detikKedaluwarsa, nil
+	return signedTokenString, expirationDurationInSeconds, nil
 }
 
-// GenerateToken adalah alias untuk BuatToken.
-func GenerateToken(userID int64, role string, secret string, expireHours int) (string, int64, error) {
-	return BuatToken(userID, role, secret, expireHours)
-}
-
-// ValidasiToken memverifikasi token string terhadap kunci rahasia.
-func ValidasiToken(stringToken string, rahasia string) (*KlaimJWT, error) {
-	token, galat := jwt.ParseWithClaims(stringToken, &KlaimJWT{}, func(t *jwt.Token) (interface{}, error) {
-		if _, cocok := t.Method.(*jwt.SigningMethodHMAC); !cocok {
-			return nil, fmt.Errorf("metode penandatanganan tidak sesuai: %v", t.Header["alg"])
+// ValidateToken verifies and parses a JWT token string using the provided secret key.
+func ValidateToken(tokenString string, secretKey string) (*JWTClaims, error) {
+	parsedToken, parseError := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(signingToken *jwt.Token) (interface{}, error) {
+		if _, matches := signingToken.Method.(*jwt.SigningMethodHMAC); !matches {
+			return nil, fmt.Errorf("unexpected signing method: %v", signingToken.Header["alg"])
 		}
-		return []byte(rahasia), nil
+		return []byte(secretKey), nil
 	})
 
-	if galat != nil {
-		return nil, GalatTokenTidakValid
+	if parseError != nil {
+		return nil, ErrInvalidToken
 	}
 
-	klaim, cocok := token.Claims.(*KlaimJWT)
-	if !cocok || !token.Valid {
-		return nil, GalatTokenTidakValid
+	claims, isClaimsValid := parsedToken.Claims.(*JWTClaims)
+	if !isClaimsValid || !parsedToken.Valid {
+		return nil, ErrInvalidToken
 	}
 
-	return klaim, nil
-}
-
-// ValidateToken adalah alias untuk ValidasiToken.
-func ValidateToken(tokenStr string, secret string) (*KlaimJWT, error) {
-	return ValidasiToken(tokenStr, secret)
+	return claims, nil
 }

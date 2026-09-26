@@ -1,249 +1,222 @@
 <!DOCTYPE html>
-<html lang="id" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bioskop Nasional — Portal Konsol & Live Demo</title>
+  <title>Cinema Ticket System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           colors: {
-            brand: {
-              50: '#f0fdf4',
-              500: '#10b981',
-              600: '#059669',
-              700: '#047857'
+            ivory: {
+              DEFAULT: '#FAF8F5',
+              dark: '#F3EFE6',
+              light: '#FCFBF9',
+              border: '#E6E1D8',
+              muted: '#7A7368'
             }
+          },
+          fontFamily: {
+            sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
           }
         }
       }
     };
   </script>
   <style>
-    @keyframes pulse-gold {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.7; transform: scale(0.96); }
+    *:focus-visible {
+      outline: 2px solid #2563EB !important;
+      outline-offset: 2px !important;
     }
-    .animate-pulse-gold {
-      animation: pulse-gold 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #FAF8F5;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D8D2C5;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #BDB5A6;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white">
+<body class="bg-[#FAF8F5] text-slate-800 min-h-screen flex flex-col font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
 
-  <!-- TOP HEADER / NAV -->
-  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+  <!-- TOP HEADER -->
+  <header class="border-b border-[#E6E1D8] bg-white sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
       
-      <!-- Brand & Status -->
-      <div class="flex items-center space-x-3">
-        <div class="h-9 w-9 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-lg">
-          🎬
+      <!-- Logo & Title -->
+      <div class="flex items-center gap-3">
+        <div class="h-9 w-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2" y="2" width="20" height="20" rx="2"></rect>
+            <line x1="7" y1="2" x2="7" y2="22"></line>
+            <line x1="17" y1="2" x2="17" y2="22"></line>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="2" y1="7" x2="7" y2="7"></line>
+            <line x1="2" y1="17" x2="7" y2="17"></line>
+            <line x1="17" y1="17" x2="22" y2="17"></line>
+            <line x1="17" y1="7" x2="22" y2="7"></line>
+          </svg>
         </div>
         <div>
-          <div class="flex items-center space-x-2">
-            <span class="font-bold text-slate-100 text-base tracking-wide">BIOSKOP NASIONAL</span>
-            <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/80 font-mono font-medium">LIVE DEMO</span>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-slate-900 text-sm sm:text-base tracking-tight">Cinema Ticket System</span>
+            <span id="role-pill-badge" class="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-blue-50 border border-blue-200 text-blue-700">
+              Customer
+            </span>
           </div>
-          <p class="text-xs text-slate-400 hidden sm:block">Technical Skill Test — Tim MKP</p>
+          <p id="portal-description" class="text-[11px] text-slate-500 hidden sm:block">Customer showtime catalog &amp; seat reservation</p>
         </div>
       </div>
 
-      <!-- Quick Role Switcher & Auth Pill -->
-      <div class="flex items-center space-x-2">
-        <!-- Backend Status Badge -->
-        <div id="backend-status" class="hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300">
-          <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span id="backend-status-text">Port :8088 Aktif</span>
+      <!-- Right: Role & Account Selector -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <label for="account-selector" class="text-xs text-slate-500 font-medium hidden sm:inline">Signed in as:</label>
+        <div class="relative">
+          <select id="account-selector" onchange="handleAccountChange(this.value)" class="bg-[#FAF8F5] border border-[#E6E1D8] text-xs font-semibold text-slate-800 rounded-md pl-3 pr-8 py-1.5 focus:border-blue-600 focus:outline-none focus:bg-white cursor-pointer appearance-none shadow-sm transition-colors">
+            <option value="customer1">Customer 1</option>
+            <option value="customer2">Customer 2</option>
+            <option value="admin">Administrator</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </div>
         </div>
 
-        <!-- Role Indicator & Quick Buttons -->
-        <div class="flex items-center bg-slate-800/90 p-1 rounded-lg border border-slate-700 space-x-1">
-          <button id="btn-login-admin" onclick="loginQuick('admin@example.com')" class="px-2.5 py-1 text-xs font-semibold rounded transition-colors text-slate-300 hover:text-white hover:bg-slate-700 flex items-center gap-1.5">
-            <span>🛡️</span>
-            <span>Masuk Admin</span>
-          </button>
-          <button id="btn-login-customer" onclick="loginQuick('customer@example.com')" class="px-2.5 py-1 text-xs font-semibold rounded transition-colors text-slate-300 hover:text-white hover:bg-slate-700 flex items-center gap-1.5">
-            <span>🎟️</span>
-            <span>Masuk Customer</span>
-          </button>
-          <button id="btn-logout" onclick="logout()" class="hidden px-2 py-1 text-xs font-medium rounded text-rose-400 hover:bg-rose-950/60 transition-colors">
-            Keluar
-          </button>
-        </div>
-
-        <a href="/swagger/index.html" target="_blank" class="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 transition-colors">
-          <span>📘 Swagger</span>
+        <a href="/swagger/index.html" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-white hover:bg-[#F3EFE6] border border-[#E6E1D8] rounded-md text-slate-600 hover:text-slate-900 transition-colors">
+          <span>Docs</span>
         </a>
       </div>
 
     </div>
   </header>
 
-  <!-- NOTIFICATION BANNER / TOAST -->
-  <div id="alert-banner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 transition-all duration-300">
-    <div id="alert-box" class="p-3.5 rounded-lg border flex items-start justify-between text-sm">
-      <div class="flex items-start space-x-2.5">
-        <span id="alert-icon" class="text-base mt-0.5">ℹ️</span>
-        <div>
-          <p id="alert-title" class="font-bold"></p>
-          <p id="alert-desc" class="text-xs opacity-90 mt-0.5 font-mono"></p>
-        </div>
+  <!-- NOTIFICATION BANNER / TOAST CONTAINER -->
+  <div id="toast-wrapper" class="fixed top-20 right-4 z-50 max-w-md w-full transition-all duration-200 pointer-events-none">
+    <div id="toast-box" class="hidden pointer-events-auto p-3.5 rounded-lg border shadow-lg bg-white text-xs flex items-start gap-3">
+      <div id="toast-icon-wrap" class="shrink-0 mt-0.5"></div>
+      <div class="flex-1 min-w-0">
+        <p id="toast-title" class="font-semibold text-slate-900 text-xs"></p>
+        <p id="toast-message" class="text-slate-600 text-[11px] mt-0.5 leading-relaxed font-mono break-words"></p>
       </div>
-      <button onclick="dismissAlert()" class="text-slate-400 hover:text-slate-200 text-lg leading-none">&times;</button>
+      <button onclick="hideToast()" class="shrink-0 text-slate-400 hover:text-slate-700 transition-colors p-1" aria-label="Dismiss message">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
     </div>
   </div>
 
-  <!-- MAIN WRAPPER -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+  <!-- MAIN WORKSPACE -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
 
-    <!-- HERO CARDS / ACTIVE USER INFO -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
-        <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Pengguna Aktif Saat Ini</p>
-          <h2 id="current-user-role" class="text-lg font-bold text-slate-100 flex items-center gap-2 mt-1">
-            <span class="inline-block h-2.5 w-2.5 rounded-full bg-slate-500"></span>
-            <span>Tamu (Belum Login)</span>
-          </h2>
-          <p id="current-user-email" class="text-xs text-slate-400 font-mono mt-0.5">Silakan pilih peran di pojok kanan atas</p>
-        </div>
-        <div id="role-badge" class="h-10 w-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">
-          👤
-        </div>
-      </div>
-
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
-        <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Validasi Hak Akses (RBAC)</p>
-          <p id="role-access-info" class="text-xs text-slate-300 mt-1 leading-relaxed">
-            Hanya peran <strong class="text-emerald-400">ADMIN</strong> yang diizinkan membuat, mengubah, dan membatalkan jadwal.
-          </p>
-        </div>
-        <div class="h-10 w-10 rounded-lg bg-emerald-950/60 border border-emerald-800/80 flex items-center justify-center text-emerald-400 text-xl font-bold">
-          🔒
-        </div>
-      </div>
-
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
-        <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Proteksi Konflik Jadwal</p>
-          <p class="text-xs text-slate-300 mt-1 leading-relaxed">
-            Algoritma backend otomatis menolak tumpang tindih waktu di studio sama dengan kode <strong class="text-amber-400 font-mono">HTTP 409</strong>.
-          </p>
-        </div>
-        <div class="h-10 w-10 rounded-lg bg-amber-950/60 border border-amber-800/80 flex items-center justify-center text-amber-400 text-xl font-bold">
-          ⚡
-        </div>
-      </div>
-    </div>
-
-    <!-- TABS -->
-    <div class="border-b border-slate-800 flex space-x-6 text-sm font-medium">
-      <button id="tab-btn-schedules" onclick="switchTab('schedules')" class="pb-3 border-b-2 border-emerald-500 text-emerald-400 font-semibold flex items-center gap-2">
-        <span>📅</span>
-        <span>Manajemen Jadwal Tayang (Poin C)</span>
-      </button>
-      <button id="tab-btn-seatmap" onclick="switchTab('seatmap')" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-2">
-        <span>💺</span>
-        <span>Simulasi Kunci Kursi &amp; Restok (Poin A)</span>
-      </button>
-      <button id="tab-btn-deliverables" onclick="switchTab('deliverables')" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-2">
-        <span>📦</span>
-        <span>Dokumen &amp; Skrip MKP (Poin A, B, C)</span>
-      </button>
-    </div>
-
-    <!-- TAB 1: SCHEDULE MANAGEMENT (POIN C) -->
-    <section id="tab-content-schedules" class="space-y-6">
+    <!-- ============================================================= -->
+    <!-- SECTION 1: CUSTOMER VIEW (Visible ONLY when in Customer mode) -->
+    <!-- ============================================================= -->
+    <div id="portal-customer-container" class="space-y-6">
       
-      <!-- Action Banner & Trigger Conflict Tool -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Left: Form Tambah Jadwal -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div>
-              <h3 class="font-bold text-slate-100 text-base">Buat Jadwal Tayang Baru</h3>
-              <p class="text-xs text-slate-400">Endpoint: POST /api/v1/schedules (Admin Only)</p>
-            </div>
-            <span class="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-mono">POST</span>
-          </div>
-
-          <form id="form-create-schedule" onsubmit="handleCreateSchedule(event)" class="space-y-3.5 text-xs">
-            <div>
-              <label class="block text-slate-300 font-medium mb-1">Pilih Film</label>
-              <select id="input-movie-id" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
-                <option value="1">1 — Inception (Durasi: 148 menit)</option>
-                <option value="2">2 — Interstellar (Durasi: 169 menit)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-slate-300 font-medium mb-1">Pilih Studio Bioskop</label>
-              <select id="input-studio-id" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
-                <option value="1">Studio 1 (IMAX - Kapasitas 50 Kursi)</option>
-                <option value="2">Studio 2 (REGULAR - Kapasitas 40 Kursi)</option>
-              </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-slate-300 font-medium mb-1">Waktu Mulai</label>
-                <input id="input-start-time" type="datetime-local" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-emerald-500" />
-              </div>
-              <div>
-                <label class="block text-slate-300 font-medium mb-1">Waktu Selesai</label>
-                <input id="input-end-time" type="datetime-local" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-emerald-500" />
-              </div>
-            </div>
-
-            <div class="pt-2 space-y-2">
-              <button type="submit" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 shadow">
-                <span>➕</span>
-                <span>Simpan Jadwal Tayang</span>
-              </button>
-              
-              <!-- Quick Preset: Trigger 409 Conflict -->
-              <button type="button" onclick="presetConflictTest()" class="w-full py-2 px-3 bg-amber-950/70 hover:bg-amber-900 border border-amber-800 text-amber-300 font-medium rounded-lg transition-colors text-xs flex items-center justify-center gap-2">
-                <span>⚡</span>
-                <span>Uji Jadwal Tabrakan (Trigger 409 Conflict)</span>
-              </button>
-            </div>
-          </form>
+      <!-- Customer Sub-navigation -->
+      <div class="flex items-center justify-between border-b border-[#E6E1D8] pb-3">
+        <div class="flex items-center gap-2">
+          <button id="cust-tab-schedules" onclick="switchCustomerTab('schedules')" class="px-3.5 py-1.5 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200 transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <span>1. Movies &amp; Showtimes</span>
+          </button>
+          <button id="cust-tab-seats" onclick="switchCustomerTab('seats')" class="px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" /><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6a2 2 0 012-2h2a2 2 0 012 2v6" /></svg>
+            <span>2. Seat Selection</span>
+          </button>
         </div>
 
-        <!-- Right: Tabel / Daftar Jadwal Tayang -->
-        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex flex-col">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+        <div class="text-[11px] text-slate-500 font-mono hidden sm:block">
+          Step-by-step ticket reservation
+        </div>
+      </div>
+
+      <!-- Customer Tab A: Movies & Showtimes -->
+      <div id="cust-view-schedules" class="space-y-6">
+        
+        <!-- Featured Movie Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Inception -->
+          <div class="bg-white border border-[#E6E1D8] rounded-xl p-5 flex flex-col justify-between space-y-4 shadow-sm">
             <div>
-              <h3 class="font-bold text-slate-100 text-base">Daftar Jadwal Tayang Aktif</h3>
-              <p class="text-xs text-slate-400">Diambil langsung dari PostgreSQL via GET /api/v1/schedules</p>
+              <div class="flex items-center justify-between">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-blue-50 text-blue-700 border border-blue-200">NOW SHOWING</span>
+                <span class="text-xs text-slate-500 font-mono">148 mins &bull; Rated 13+</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-lg mt-2">Inception (2010)</h3>
+              <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                A skilled thief who steals corporate secrets through dream-sharing technology is offered a chance to have his criminal history erased.
+              </p>
+              <div class="flex items-center gap-2 mt-3 text-[11px] font-mono text-slate-600">
+                <span class="px-2 py-0.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded">Studio 1: IMAX</span>
+                <span class="px-2 py-0.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded">50 Seats</span>
+              </div>
             </div>
-            <button onclick="loadSchedules()" class="text-xs px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors flex items-center gap-1.5">
-              <span>🔄</span>
-              <span>Segarkan</span>
+            <button onclick="bookScheduleSeats(1, 1, 1, 'Studio 1 (IMAX)', 'Inception (148 mins)', 'Oct 1, 2026, 19:00 - 21:28')" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-md transition-colors flex items-center justify-center gap-1.5 shadow-sm">
+              <span>Select Seats for Inception &rarr;</span>
             </button>
           </div>
 
-          <div class="flex-1 overflow-x-auto">
+          <!-- Interstellar -->
+          <div class="bg-white border border-[#E6E1D8] rounded-xl p-5 flex flex-col justify-between space-y-4 shadow-sm">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-blue-50 text-blue-700 border border-blue-200">NOW SHOWING</span>
+                <span class="text-xs text-slate-500 font-mono">169 mins &bull; Rated 13+</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-lg mt-2">Interstellar (2014)</h3>
+              <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot is tasked to pilot a spacecraft along with a team of researchers.
+              </p>
+              <div class="flex items-center gap-2 mt-3 text-[11px] font-mono text-slate-600">
+                <span class="px-2 py-0.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded">Studio 2: Regular</span>
+                <span class="px-2 py-0.5 bg-[#FAF8F5] border border-[#E6E1D8] rounded">40 Seats</span>
+              </div>
+            </div>
+            <button onclick="bookScheduleSeats(2, 2, 2, 'Studio 2 (Regular)', 'Interstellar (169 mins)', 'Oct 1, 2026, 20:00 - 22:49')" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-md transition-colors flex items-center justify-center gap-1.5 shadow-sm">
+              <span>Select Seats for Interstellar &rarr;</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- All Showtimes Table -->
+        <div class="bg-white border border-[#E6E1D8] rounded-xl p-5 space-y-4 shadow-sm">
+          <div class="flex items-center justify-between border-b border-[#E6E1D8] pb-3">
+            <div>
+              <h2 class="font-bold text-slate-900 text-sm">All Screening Showtimes</h2>
+              <p class="text-[11px] text-slate-500 mt-0.5">Click any showtime to view available seats</p>
+            </div>
+            <button onclick="refreshSchedules()" class="text-xs px-2.5 py-1 rounded bg-[#FAF8F5] hover:bg-[#F3EFE6] border border-[#E6E1D8] text-slate-700 transition-colors flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
-              <thead class="text-slate-400 border-b border-slate-800 font-semibold uppercase">
+              <thead class="text-slate-500 bg-[#FAF8F5] border-b border-[#E6E1D8] text-[11px] font-semibold uppercase tracking-wider">
                 <tr>
-                  <th class="py-2.5 px-3">ID</th>
                   <th class="py-2.5 px-3">Film</th>
                   <th class="py-2.5 px-3">Studio</th>
-                  <th class="py-2.5 px-3">Rentang Jam Tayang (WIB)</th>
+                  <th class="py-2.5 px-3">Showtime Window</th>
                   <th class="py-2.5 px-3">Status</th>
-                  <th class="py-2.5 px-3 text-right">Aksi</th>
+                  <th class="py-2.5 px-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody id="schedules-tbody" class="divide-y divide-slate-800/80 font-mono">
+              <tbody id="customer-schedules-table-body" class="divide-y divide-[#E6E1D8]">
                 <tr>
-                  <td colspan="6" class="py-8 text-center text-slate-500">Memuat data jadwal tayang...</td>
+                  <td colspan="5" class="py-10 text-center text-slate-500 text-xs">
+                    Loading showtimes...
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -252,379 +225,878 @@
 
       </div>
 
-    </section>
-
-    <!-- TAB 2: SEATMAP & CONCURRENCY SIMULATOR (POIN A) -->
-    <section id="tab-content-seatmap" class="hidden space-y-6">
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
+      <!-- Customer Tab B: Seat Selection -->
+      <div id="cust-view-seats" class="hidden space-y-6">
         
-        <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-3">
-          <div>
-            <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <span>💺</span>
-              <span>Simulasi Kunci Kursi Real-Time (Redis Distributed Lock)</span>
-            </h3>
-            <p class="text-xs text-slate-400 mt-1">
-              Membuktikan jawaban <strong>Poin A.2</strong>: Solusi agar kursi tidak bisa diambil oleh orang lain secara bersamaan.
-            </p>
+        <div class="bg-white border border-[#E6E1D8] rounded-xl p-6 shadow-sm space-y-6">
+          
+          <!-- Context Banner -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-lg bg-[#FAF8F5] border border-[#E6E1D8] gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+                <span id="seat-active-movie-label" class="font-bold text-slate-900 text-xs sm:text-sm">Inception (Studio 1 - IMAX)</span>
+              </div>
+              <p id="seat-active-time-label" class="text-xs text-slate-500 font-mono mt-0.5">Oct 1, 2026, 19:00 - 21:28 &bull; 10-Minute Hold Guarantee</p>
+            </div>
+            <button onclick="switchCustomerTab('schedules')" class="text-xs text-blue-700 hover:text-blue-900 font-medium underline shrink-0">
+              &larr; Choose Different Showtime
+            </button>
+          </div>
+
+          <!-- Auditorium Screen -->
+          <div class="max-w-md mx-auto text-center pt-2">
+            <div class="h-1.5 w-full bg-blue-200 rounded-full"></div>
+            <p class="text-[10px] uppercase font-mono font-medium text-slate-400 tracking-widest mt-2">Auditorium Screen</p>
+          </div>
+
+          <!-- Seat Grid -->
+          <div id="seatmap-grid-container" class="max-w-md mx-auto space-y-2.5 font-mono">
+            <!-- Populated via initSeatMap() -->
           </div>
 
           <!-- Legend -->
-          <div class="flex items-center space-x-4 text-xs">
-            <div class="flex items-center space-x-1.5">
-              <span class="h-3 w-3 rounded bg-emerald-500"></span>
-              <span class="text-slate-300">Tersedia (Available)</span>
+          <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs pt-2 border-t border-[#E6E1D8]">
+            <div class="flex items-center gap-2">
+              <span class="h-3.5 w-3.5 rounded bg-white border border-[#CBD5E1]"></span>
+              <span class="text-slate-700">Available</span>
             </div>
-            <div class="flex items-center space-x-1.5">
-              <span class="h-3 w-3 rounded bg-amber-500 animate-pulse-gold"></span>
-              <span class="text-slate-300">Terkunci (Hold 10 Menit)</span>
+            <div class="flex items-center gap-2">
+              <span class="h-3.5 w-3.5 rounded bg-blue-600 border border-blue-600"></span>
+              <span class="text-blue-700 font-semibold">Your Hold (10 min)</span>
             </div>
-            <div class="flex items-center space-x-1.5">
-              <span class="h-3 w-3 rounded bg-slate-700"></span>
-              <span class="text-slate-400">Terjual (Booked)</span>
+            <div class="flex items-center gap-2">
+              <span class="h-3.5 w-3.5 rounded bg-slate-100 border border-dashed border-slate-400"></span>
+              <span class="text-slate-600">Held by Other</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="h-3.5 w-3.5 rounded bg-[#EFECE6] border border-[#DDD8CF]"></span>
+              <span class="text-slate-400">Reserved / Sold</span>
             </div>
           </div>
+
+          <!-- Seat Action Box -->
+          <div class="max-w-md mx-auto bg-[#FAF8F5] p-4 rounded-xl border border-[#E6E1D8]">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-800">Selected Seat:</p>
+                <p id="seat-status-caption" class="text-xs text-slate-600 mt-0.5">Click any available seat above.</p>
+              </div>
+              <div id="seat-countdown-box" class="hidden text-right">
+                <span class="text-[10px] uppercase text-blue-700 font-mono font-semibold">Hold Expiry</span>
+                <p id="seat-countdown-display" class="text-base font-bold font-mono text-blue-600">10:00</p>
+              </div>
+            </div>
+
+            <div id="seat-controls-row" class="hidden mt-4 pt-3 border-t border-[#E6E1D8] flex items-center gap-3">
+              <button onclick="commitSeatPurchase()" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-md transition-colors shadow-sm text-center">
+                Confirm Booking
+              </button>
+              <button onclick="releaseSeatLock()" class="px-4 py-2 bg-white hover:bg-slate-50 border border-[#E6E1D8] text-slate-700 font-medium text-xs rounded-md transition-colors text-center">
+                Release Seat
+              </button>
+            </div>
+          </div>
+
         </div>
 
-        <!-- Cinema Screen Curve -->
-        <div class="max-w-md mx-auto mb-8 text-center">
-          <div class="h-2 w-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent rounded-full shadow-[0_0_12px_rgba(56,189,248,0.7)]"></div>
-          <p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest mt-2">LAYAR BIOSKOP (SCREEN)</p>
+      </div>
+
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- SECTION 2: ADMIN VIEW (Visible ONLY when in Admin mode)    -->
+    <!-- ========================================================== -->
+    <div id="portal-admin-container" class="hidden space-y-6">
+      
+      <!-- Admin Sub-navigation -->
+      <div class="flex items-center justify-between border-b border-[#E6E1D8] pb-3">
+        <div class="flex items-center gap-2">
+          <button id="admin-tab-manage" onclick="switchAdminTab('manage')" class="px-3.5 py-1.5 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200 transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+            <span>Active Schedules</span>
+          </button>
+          <button id="admin-tab-create" onclick="switchAdminTab('create')" class="px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+            <span>Create Schedule</span>
+          </button>
+          <button id="admin-tab-conflicts" onclick="switchAdminTab('conflicts')" class="px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            <span>Conflict Verification (409)</span>
+          </button>
         </div>
 
-        <!-- Seats Grid -->
-        <div id="seats-container" class="max-w-md mx-auto space-y-3 font-mono">
-          <!-- Dynamically populated rows A, B, C -->
+        <div class="text-[11px] text-slate-500 font-mono hidden sm:block">
+          Administrator Console
         </div>
+      </div>
 
-        <!-- Lock Control Console -->
-        <div class="mt-8 pt-6 border-t border-slate-800 max-w-2xl mx-auto bg-slate-950 p-4 rounded-xl border border-slate-800/80">
-          <div class="flex items-center justify-between">
+      <!-- Admin Tab A: Active Schedules List -->
+      <div id="admin-view-manage" class="space-y-4">
+        <div class="bg-white border border-[#E6E1D8] rounded-xl p-5 space-y-4 shadow-sm">
+          <div class="flex items-center justify-between border-b border-[#E6E1D8] pb-3">
             <div>
-              <p class="text-xs font-bold text-slate-300">Status Kursi yang Dipilih:</p>
-              <p id="selected-seat-msg" class="text-xs text-slate-400 mt-0.5">Klik salah satu kursi hijau untuk mensimulasikan penguncian tiket.</p>
+              <h2 class="font-bold text-slate-900 text-sm">Active Screening Schedules</h2>
+              <p class="text-[11px] text-slate-500 mt-0.5">Manage existing showtimes or cancel screenings</p>
             </div>
-            <div id="seat-timer" class="hidden text-right">
-              <p class="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Countdown Hold TTL</p>
-              <p id="timer-display" class="text-lg font-bold font-mono text-amber-400">10:00</p>
+            <div class="flex items-center gap-2">
+              <button onclick="switchAdminTab('create')" class="text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors shadow-sm">
+                + Create Schedule
+              </button>
+              <button onclick="refreshSchedules()" class="text-xs px-2.5 py-1.5 rounded bg-[#FAF8F5] hover:bg-[#F3EFE6] border border-[#E6E1D8] text-slate-700 transition-colors">
+                Refresh
+              </button>
             </div>
           </div>
 
-          <div id="seat-actions" class="hidden mt-4 flex items-center gap-3 pt-3 border-t border-slate-800/80 text-xs">
-            <button onclick="simulateCompletePayment()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors">
-              💳 Selesaikan Pembayaran (Beli)
-            </button>
-            <button onclick="simulateReleaseHold()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors">
-              ⏳ Lepas Kunci (Auto-Restock)
-            </button>
+          <div class="overflow-x-auto min-h-[260px]">
+            <table class="w-full text-left text-xs">
+              <thead class="text-slate-500 bg-[#FAF8F5] border-b border-[#E6E1D8] text-[11px] font-semibold uppercase tracking-wider">
+                <tr>
+                  <th class="py-2.5 px-3">ID</th>
+                  <th class="py-2.5 px-3">Film</th>
+                  <th class="py-2.5 px-3">Studio</th>
+                  <th class="py-2.5 px-3">Screening Window</th>
+                  <th class="py-2.5 px-3">Status</th>
+                  <th class="py-2.5 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="schedules-table-body" class="divide-y divide-[#E6E1D8] font-mono">
+                <tr>
+                  <td colspan="6" class="py-10 text-center text-slate-500 font-sans text-xs">
+                    Loading schedules...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pt-3 border-t border-[#E6E1D8] text-[11px] text-slate-500 flex items-center justify-between font-mono">
+            <span id="schedules-count-label">Total entries: 0</span>
+            <span>Cancelling updates status to CANCELLED</span>
           </div>
         </div>
-
       </div>
-    </section>
 
-    <!-- TAB 3: DELIVERABLES & DOCUMENTATION (POIN A, B, C) -->
-    <section id="tab-content-deliverables" class="hidden space-y-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        
-        <!-- Card 1: Topologi Cloud JPG -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between space-y-4">
-          <div>
-            <span class="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400 font-bold border border-blue-800">POIN A</span>
-            <h4 class="font-bold text-slate-100 text-base mt-2">Topologi Arsitektur Cloud (JPG)</h4>
-            <p class="text-xs text-slate-400 mt-1">
-              Topologi lengkap skala nasional mencakup WAF, API Gateway, Redis Redlock, Kafka Event Broker, dan Multi-AZ PostgreSQL.
-            </p>
+      <!-- Admin Tab B: Create Schedule Form -->
+      <div id="admin-view-create" class="hidden space-y-4">
+        <div class="max-w-xl mx-auto bg-white border border-[#E6E1D8] rounded-xl p-6 shadow-sm space-y-5">
+          <div class="border-b border-[#E6E1D8] pb-3">
+            <h2 class="font-bold text-slate-900 text-sm sm:text-base">Create New Screening Schedule</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Database automatically verifies studio overlap prevention</p>
           </div>
-          <a href="/docs/system-topology.jpg" target="_blank" class="w-full text-center py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors">
-            🖼️ Buka Diagram Topologi (JPG)
-          </a>
-        </div>
 
-        <!-- Card 2: Database ERD JPG -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between space-y-4">
-          <div>
-            <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-800">POIN B</span>
-            <h4 class="font-bold text-slate-100 text-base mt-2">Entity Relationship Diagram (JPG)</h4>
-            <p class="text-xs text-slate-400 mt-1">
-              13 Tabel relasional ternormalisasi 3NF, kunci unik (jadwal_id, kursi_id), dan versi Optimistic Locking.
-            </p>
-          </div>
-          <a href="/docs/database-erd.jpg" target="_blank" class="w-full text-center py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors">
-            🗄️ Buka Diagram ERD (JPG)
-          </a>
-        </div>
+          <form id="form-schedule" onsubmit="submitSchedule(event)" class="space-y-4 text-xs">
+            <div>
+              <label for="select-movie-id" class="block text-slate-700 font-medium mb-1">Film Title</label>
+              <select id="select-movie-id" class="w-full bg-[#FAF8F5] border border-[#E6E1D8] rounded-md px-3 py-2 text-slate-900 text-xs focus:border-blue-600 focus:bg-white">
+                <option value="1">1: Inception (148 mins, Rated 13+)</option>
+                <option value="2">2: Interstellar (169 mins, Rated 13+)</option>
+              </select>
+            </div>
 
-        <!-- Card 3: Skrip PostgreSQL -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between space-y-4">
-          <div>
-            <span class="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-800">POIN B</span>
-            <h4 class="font-bold text-slate-100 text-base mt-2">Skrip SQL Siap Impor Tim MKP</h4>
-            <p class="text-xs text-slate-400 mt-1">
-              Berkas tunggal DDL 13 tabel dan data awal seeder dengan password bcrypt teruji.
-            </p>
-          </div>
-          <a href="/docs/skema_dan_data_awal_bioskop.sql" download class="w-full text-center py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors">
-            💾 Unduh Skrip PostgreSQL (.sql)
-          </a>
-        </div>
+            <div>
+              <label for="select-studio-id" class="block text-slate-700 font-medium mb-1">Cinema Studio</label>
+              <select id="select-studio-id" class="w-full bg-[#FAF8F5] border border-[#E6E1D8] rounded-md px-3 py-2 text-slate-900 text-xs focus:border-blue-600 focus:bg-white">
+                <option value="1">Studio 1 (IMAX - Capacity: 50 seats)</option>
+                <option value="2">Studio 2 (Regular - Capacity: 40 seats)</option>
+              </select>
+            </div>
 
-        <!-- Card 4: Postman Collection -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between space-y-4">
-          <div>
-            <span class="text-xs px-2 py-0.5 rounded bg-amber-950 text-amber-400 font-bold border border-amber-800">INSTRUKSI 4</span>
-            <h4 class="font-bold text-slate-100 text-base mt-2">Koleksi Postman v2.1</h4>
-            <p class="text-xs text-slate-400 mt-1">
-              Koleksi pengujian lengkap dengan otomatisasi penyimpan token JWT dan verifikasi status 200, 201, 204, 401, 403, 409.
-            </p>
-          </div>
-          <a href="/docs/Cinema_Ticket_System.postman_collection.json" download class="w-full text-center py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors">
-            📥 Unduh Koleksi Postman (.json)
-          </a>
-        </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="input-start-time" class="block text-slate-700 font-medium mb-1">Start Time</label>
+                <input id="input-start-time" type="datetime-local" required class="w-full bg-[#FAF8F5] border border-[#E6E1D8] rounded-md px-2.5 py-1.5 text-slate-900 text-xs focus:border-blue-600 focus:bg-white" />
+              </div>
+              <div>
+                <label for="input-end-time" class="block text-slate-700 font-medium mb-1">End Time</label>
+                <input id="input-end-time" type="datetime-local" required class="w-full bg-[#FAF8F5] border border-[#E6E1D8] rounded-md px-2.5 py-1.5 text-slate-900 text-xs focus:border-blue-600 focus:bg-white" />
+              </div>
+            </div>
 
-        <!-- Card 5: Flowchart Awam JPG -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between space-y-4">
-          <div>
-            <span class="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400 font-bold border border-blue-800">POIN A.1</span>
-            <h4 class="font-bold text-slate-100 text-base mt-2">Flowchart Alur Pemesanan &amp; Refund</h4>
-            <p class="text-xs text-slate-400 mt-1">
-              Diagram visual alur yang mudah dimengerti orang awam: pemilihan film, kunci kursi 10 menit, restok otomatis, &amp; refund 100%.
-            </p>
-          </div>
-          <a href="/docs/flowchart-pemesanan.jpg" target="_blank" class="w-full text-center py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors">
-            🔄 Buka Flowchart Awam (JPG)
-          </a>
+            <div class="pt-2 flex items-center gap-2">
+              <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors shadow-sm">
+                Save &amp; Publish Schedule
+              </button>
+              <button type="button" onclick="switchAdminTab('manage')" class="px-4 py-2.5 bg-white hover:bg-[#F3EFE6] border border-[#E6E1D8] text-slate-700 rounded-md transition-colors">
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
-
-        <!-- Card 6: Swagger Docs -->
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between space-y-4">
-          <div>
-            <span class="text-xs px-2 py-0.5 rounded bg-purple-950 text-purple-400 font-bold border border-purple-800">POIN C</span>
-            <h4 class="font-bold text-slate-100 text-base mt-2">Swagger OpenAPI Console</h4>
-            <p class="text-xs text-slate-400 mt-1">
-              Dokumentasi interaktif OpenAPI untuk mencoba endpoint secara langsung dari browser.
-            </p>
-          </div>
-          <a href="/swagger/index.html" target="_blank" class="w-full text-center py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors">
-            🚀 Buka Swagger UI Konsol
-          </a>
-        </div>
-
       </div>
-    </section>
+
+      <!-- Admin Tab C: Conflict Verification -->
+      <div id="admin-view-conflicts" class="hidden space-y-4">
+        <div class="bg-white border border-[#E6E1D8] rounded-xl p-6 shadow-sm space-y-5">
+          <div class="border-b border-[#E6E1D8] pb-3">
+            <h2 class="font-bold text-slate-900 text-sm sm:text-base">Schedule Conflict Prevention Lab</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Quickly test that overlapping studio schedules are rejected with HTTP 409 Conflict</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+            
+            <!-- Scenario 1: Overlap Collision -->
+            <div id="card-scenario-collision" class="p-4 rounded-xl bg-[#FAF8F5] border border-[#E6E1D8] space-y-3 shadow-sm">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900">Scenario 1: Overlap Collision</span>
+                  <span class="text-[10px] font-mono text-slate-700 font-semibold bg-white px-1.5 py-0.5 rounded border border-[#E6E1D8]">409 Conflict</span>
+                </div>
+                <p class="text-[11px] text-slate-600 mt-2">
+                  Studio 1 &bull; Oct 1, 20:00 - 22:30. Overlaps with seed Inception (19:00 - 21:28).
+                </p>
+              </div>
+              <button id="btn-scenario-collision" onclick="runConflictScenario('collision')" class="w-full py-2 bg-white hover:bg-slate-50 text-slate-800 border border-[#CBD5E1] rounded-md font-medium text-xs transition-colors">
+                Test Collision (Expect 409)
+              </button>
+
+              <!-- Dedicated Result & Server Response for Scenario 1 -->
+              <div id="result-box-collision" class="hidden pt-3 border-t border-[#E6E1D8] space-y-2 text-left">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] uppercase font-mono font-semibold text-slate-500">Outcome</span>
+                  <span id="result-status-collision" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white border border-slate-300 text-slate-800"></span>
+                </div>
+                <p id="result-msg-collision" class="text-[11px] text-slate-700 leading-relaxed"></p>
+                <div>
+                  <span class="text-[10px] uppercase font-mono font-semibold text-slate-500">Server Response:</span>
+                  <pre id="result-body-collision" class="mt-1 p-2.5 bg-white border border-[#E6E1D8] rounded-md text-[11px] font-mono text-slate-800 overflow-x-auto whitespace-pre-wrap"></pre>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scenario 2: Parallel Studio -->
+            <div id="card-scenario-parallel" class="p-4 rounded-xl bg-[#FAF8F5] border border-[#E6E1D8] space-y-3 shadow-sm">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900">Scenario 2: Parallel Studio</span>
+                  <span class="text-[10px] font-mono text-blue-700 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">201 Created</span>
+                </div>
+                <p class="text-[11px] text-slate-600 mt-2">
+                  Studio 2 &bull; Oct 1, 20:00 - 22:30. Same time window but Studio 2 is completely distinct.
+                </p>
+              </div>
+              <button id="btn-scenario-parallel" onclick="runConflictScenario('parallel')" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium text-xs transition-colors shadow-sm">
+                Test Parallel (Expect 201)
+              </button>
+
+              <!-- Dedicated Result & Server Response for Scenario 2 -->
+              <div id="result-box-parallel" class="hidden pt-3 border-t border-[#E6E1D8] space-y-2 text-left">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] uppercase font-mono font-semibold text-slate-500">Outcome</span>
+                  <span id="result-status-parallel" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 border border-blue-200 text-blue-700"></span>
+                </div>
+                <p id="result-msg-parallel" class="text-[11px] text-slate-700 leading-relaxed"></p>
+                <div>
+                  <span class="text-[10px] uppercase font-mono font-semibold text-slate-500">Server Response:</span>
+                  <pre id="result-body-parallel" class="mt-1 p-2.5 bg-white border border-[#E6E1D8] rounded-md text-[11px] font-mono text-slate-800 overflow-x-auto whitespace-pre-wrap"></pre>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scenario 3: Consecutive Slot -->
+            <div id="card-scenario-consecutive" class="p-4 rounded-xl bg-[#FAF8F5] border border-[#E6E1D8] space-y-3 shadow-sm">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900">Scenario 3: Consecutive Slot</span>
+                  <span class="text-[10px] font-mono text-blue-700 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">201 Created</span>
+                </div>
+                <p class="text-[11px] text-slate-600 mt-2">
+                  Studio 1 &bull; Oct 1, 21:30 - 23:58. Starts after Inception finishes at 21:28.
+                </p>
+              </div>
+              <button id="btn-scenario-consecutive" onclick="runConflictScenario('consecutive')" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium text-xs transition-colors shadow-sm">
+                Test Consecutive (Expect 201)
+              </button>
+
+              <!-- Dedicated Result & Server Response for Scenario 3 -->
+              <div id="result-box-consecutive" class="hidden pt-3 border-t border-[#E6E1D8] space-y-2 text-left">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] uppercase font-mono font-semibold text-slate-500">Outcome</span>
+                  <span id="result-status-consecutive" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 border border-blue-200 text-blue-700"></span>
+                </div>
+                <p id="result-msg-consecutive" class="text-[11px] text-slate-700 leading-relaxed"></p>
+                <div>
+                  <span class="text-[10px] uppercase font-mono font-semibold text-slate-500">Server Response:</span>
+                  <pre id="result-body-consecutive" class="mt-1 p-2.5 bg-white border border-[#E6E1D8] rounded-md text-[11px] font-mono text-slate-800 overflow-x-auto whitespace-pre-wrap"></pre>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
 
   </main>
 
   <!-- FOOTER -->
-  <footer class="border-t border-slate-800 bg-slate-900/60 py-4 mt-8 text-center text-xs text-slate-400">
-    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-      <p>Sistem Tiket Bioskop Skala Nasional • Dibuat dengan Golang (Gin + GORM + PostgreSQL)</p>
-      <p class="font-mono text-slate-400">Kandidat: <span class="text-slate-200 font-semibold">Kevan Deschans (vinkanaka)</span></p>
+  <footer class="border-t border-[#E6E1D8] bg-white py-4 mt-8 text-xs text-slate-500">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
+        <span>Cinema Ticket System: Golang, Gin, GORM, PostgreSQL</span>
+      </div>
+      <div class="font-mono text-[11px] text-slate-500">
+        Port :8088 &bull; Redlock Concurrency
+      </div>
     </div>
   </footer>
 
-  <!-- SCRIPT LOGIC -->
+  <!-- CLIENT SCRIPTS -->
   <script>
-    let authToken = localStorage.getItem('token') || '';
-    let currentRole = localStorage.getItem('role') || '';
-    let currentEmail = localStorage.getItem('email') || '';
-    let seatTimerInterval = null;
+    // State management
+    let currentMode = 'CUSTOMER'; // 'CUSTOMER' or 'ADMIN'
+    let currentAuthToken = localStorage.getItem('cinema_token') || '';
+    let currentAuthRole = localStorage.getItem('cinema_role') || 'CUSTOMER';
+    let currentAuthEmail = localStorage.getItem('cinema_email') || 'customer@example.com';
+    let countdownIntervalId = null;
 
-    // Inisialisasi awal
+    // Active booking context for customer
+    let activeBookingContext = {
+      scheduleId: 1,
+      movieId: 1,
+      studioId: 1,
+      studioName: 'Studio 1 (IMAX)',
+      movieTitle: 'Inception (148 mins)',
+      timeLabel: 'Oct 1, 2026, 19:00 - 21:28'
+    };
+
     window.addEventListener('DOMContentLoaded', () => {
-      checkHealth();
-      updateAuthUI();
-      initDefaultScheduleTimes();
-      loadSchedules();
-      renderSeatMap();
+      // Initialize mode based on saved role or default to customer
+      if (!currentAuthToken) {
+        authorize('customer@example.com', 'password123', false);
+        switchMode('CUSTOMER');
+      } else {
+        syncHeaderDisplay();
+        switchMode(currentAuthRole === 'ADMIN' ? 'ADMIN' : 'CUSTOMER');
+        refreshSchedules();
+      }
+      initTimeInputs();
+      initSeatMap();
     });
 
-    async function checkHealth() {
-      try {
-        const res = await fetch('/health');
-        if (res.ok) {
-          document.getElementById('backend-status-text').textContent = 'Backend Online (:8088)';
-        }
-      } catch (e) {
-        document.getElementById('backend-status-text').textContent = 'Backend Offline';
+    // 1. Role-based Account Change
+    async function handleAccountChange(accountKey) {
+      if (accountKey === 'admin') {
+        await authorize('admin@example.com', 'password123', false);
+        switchMode('ADMIN');
+        showToast('info', 'Admin Console', 'Signed in as Administrator');
+      } else if (accountKey === 'customer2') {
+        await authorize('customer2@example.com', 'password123', false);
+        switchMode('CUSTOMER');
+        syncUserHoldState();
+        showToast('info', 'Customer Portal', 'Signed in as Customer 2');
+      } else {
+        await authorize('customer@example.com', 'password123', false);
+        switchMode('CUSTOMER');
+        syncUserHoldState();
+        showToast('info', 'Customer Portal', 'Signed in as Customer 1');
       }
     }
 
-    function initDefaultScheduleTimes() {
-      const now = new Date();
-      now.setDate(now.getDate() + 3);
-      now.setHours(19, 0, 0, 0);
-      const startStr = now.toISOString().slice(0, 16);
-      
-      const end = new Date(now.getTime() + 2 * 60 * 60 * 1000 + 15 * 60 * 1000);
-      const endStr = end.toISOString().slice(0, 16);
+    // 2. Switch Mode: Customer vs Admin (Strict separation)
+    function switchMode(targetMode) {
+      currentMode = targetMode;
 
-      document.getElementById('input-start-time').value = startStr;
-      document.getElementById('input-end-time').value = endStr;
+      const portalCustomer = document.getElementById('portal-customer-container');
+      const portalAdmin = document.getElementById('portal-admin-container');
+      const portalDesc = document.getElementById('portal-description');
+      const roleBadge = document.getElementById('role-pill-badge');
+      const accountSelector = document.getElementById('account-selector');
+
+      if (targetMode === 'CUSTOMER') {
+        // Show Customer, Hide Admin
+        portalCustomer.classList.remove('hidden');
+        portalAdmin.classList.add('hidden');
+
+        portalDesc.textContent = 'Customer showtime catalog & seat reservation';
+        roleBadge.textContent = 'Customer';
+        roleBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-blue-50 border border-blue-200 text-blue-700';
+
+        if (accountSelector && accountSelector.value === 'admin') {
+          accountSelector.value = 'customer1';
+        }
+
+        if (!document.getElementById('cust-view-seats') || document.getElementById('cust-view-seats').classList.contains('hidden')) {
+          switchCustomerTab('schedules');
+        } else {
+          switchCustomerTab('seats');
+        }
+      } else {
+        // Show Admin, Hide Customer
+        portalCustomer.classList.add('hidden');
+        portalAdmin.classList.remove('hidden');
+
+        portalDesc.textContent = 'Screening schedule management & conflict prevention';
+        roleBadge.textContent = 'Administrator';
+        roleBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-blue-600 text-white';
+
+        if (accountSelector) {
+          accountSelector.value = 'admin';
+        }
+
+        switchAdminTab('manage');
+      }
     }
 
-    function presetConflictTest() {
-      // Mengisi form dengan jadwal yang tumpang tindih dengan jadwal ID 1 (01 Okt 2026 19:00 - 21:28 di Studio 1)
-      document.getElementById('input-movie-id').value = '2';
-      document.getElementById('input-studio-id').value = '1';
-      document.getElementById('input-start-time').value = '2026-10-01T20:00';
-      document.getElementById('input-end-time').value = '2026-10-01T22:30';
+    // 2. Customer Tabs: Schedules vs Seats
+    function switchCustomerTab(tab) {
+      const tabSchedulesBtn = document.getElementById('cust-tab-schedules');
+      const tabSeatsBtn = document.getElementById('cust-tab-seats');
+      const viewSchedules = document.getElementById('cust-view-schedules');
+      const viewSeats = document.getElementById('cust-view-seats');
 
-      showAlert(
-        'warning',
-        '⚡ Form Terisi dengan Jam Bentrok di Studio 1',
-        'Jadwal diatur ke 01 Okt 2026 jam 20:00 - 22:30 pada Studio 1 (bertabrakan dengan Inception jam 19:00 - 21:28). Silakan klik "Simpan Jadwal Tayang" untuk melihat tolakan HTTP 409 Conflict.'
-      );
+      if (tab === 'schedules') {
+        viewSchedules.classList.remove('hidden');
+        viewSeats.classList.add('hidden');
+        tabSchedulesBtn.className = 'px-3.5 py-1.5 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200 transition-all flex items-center gap-1.5';
+        tabSeatsBtn.className = 'px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1.5';
+      } else {
+        viewSchedules.classList.add('hidden');
+        viewSeats.classList.remove('hidden');
+        tabSeatsBtn.className = 'px-3.5 py-1.5 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200 transition-all flex items-center gap-1.5';
+        tabSchedulesBtn.className = 'px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1.5';
+      }
     }
 
-    async function loginQuick(email) {
+    // 3. Admin Tabs: Manage vs Create vs Conflicts
+    function switchAdminTab(tab) {
+      const btnManage = document.getElementById('admin-tab-manage');
+      const btnCreate = document.getElementById('admin-tab-create');
+      const btnConflicts = document.getElementById('admin-tab-conflicts');
+
+      const viewManage = document.getElementById('admin-view-manage');
+      const viewCreate = document.getElementById('admin-view-create');
+      const viewConflicts = document.getElementById('admin-view-conflicts');
+
+      const defaultBtn = 'px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1.5';
+      const activeBtn = 'px-3.5 py-1.5 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 border border-blue-200 transition-all flex items-center gap-1.5';
+
+      btnManage.className = defaultBtn;
+      btnCreate.className = defaultBtn;
+      btnConflicts.className = defaultBtn;
+
+      viewManage.classList.add('hidden');
+      viewCreate.classList.add('hidden');
+      viewConflicts.classList.add('hidden');
+
+      if (tab === 'manage') {
+        btnManage.className = activeBtn;
+        viewManage.classList.remove('hidden');
+      } else if (tab === 'create') {
+        btnCreate.className = activeBtn;
+        viewCreate.classList.remove('hidden');
+      } else if (tab === 'conflicts') {
+        btnConflicts.className = activeBtn;
+        viewConflicts.classList.remove('hidden');
+      }
+    }
+
+    // 4. Quick cycle between Customer 1 and Customer 2
+    function cycleCustomerAccount() {
+      if (currentAuthEmail === 'customer@example.com') {
+        authorize('customer2@example.com', 'password123', true);
+      } else {
+        authorize('customer@example.com', 'password123', true);
+      }
+    }
+
+    // 5. Authentication & JWT
+    async function authorize(email, password = 'password123', notify = true) {
       try {
-        const res = await fetch('/api/v1/auth/login', {
+        const response = await fetch('/api/v1/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email, password: 'password123' })
+          body: JSON.stringify({ email: email, password: password })
         });
-        const data = await res.json();
-        if (res.ok) {
-          authToken = data.access_token;
-          currentRole = email.includes('admin') ? 'ADMIN' : 'CUSTOMER';
-          currentEmail = email;
-          localStorage.setItem('token', authToken);
-          localStorage.setItem('role', currentRole);
-          localStorage.setItem('email', currentEmail);
-          updateAuthUI();
-          showAlert('success', 'Berhasil Masuk!', `Terotentikasi sebagai ${currentRole} (${currentEmail}). Token JWT otomatis tersimpan.`);
-          loadSchedules();
-        } else {
-          showAlert('error', 'Gagal Masuk', data.error ? data.error.message : 'Kredensial tidak valid');
+        const data = await response.json();
+
+        if (response.ok && data.access_token) {
+          currentAuthToken = data.access_token;
+          try {
+            const tokenPayload = JSON.parse(atob(data.access_token.split('.')[1]));
+            currentAuthRole = tokenPayload.role || (email.includes('admin') ? 'ADMIN' : 'CUSTOMER');
+          } catch (_) {
+            currentAuthRole = email.includes('admin') ? 'ADMIN' : 'CUSTOMER';
+          }
+          currentAuthEmail = email;
+
+          localStorage.setItem('cinema_token', currentAuthToken);
+          localStorage.setItem('cinema_role', currentAuthRole);
+          localStorage.setItem('cinema_email', currentAuthEmail);
+
+          syncHeaderDisplay();
+          refreshSchedules();
+
+          if (notify) {
+            showToast('success', 'User Switched', `Logged in as ${currentAuthEmail}`);
+          }
         }
       } catch (err) {
-        showAlert('error', 'Koneksi Gagal', err.message);
+        if (notify) showToast('error', 'Login Error', err.message);
       }
     }
 
-    function logout() {
-      authToken = '';
-      currentRole = '';
-      currentEmail = '';
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('email');
-      updateAuthUI();
-      showAlert('info', 'Telah Keluar', 'Anda sekarang berada dalam mode Tamu (Guest).');
-      loadSchedules();
-    }
-
-    function updateAuthUI() {
-      const roleText = document.getElementById('current-user-role');
-      const emailText = document.getElementById('current-user-email');
-      const roleBadge = document.getElementById('role-badge');
-      const logoutBtn = document.getElementById('btn-logout');
-
-      if (authToken) {
-        logoutBtn.classList.remove('hidden');
-        if (currentRole === 'ADMIN') {
-          roleText.innerHTML = '<span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400"></span><span>ADMINISTRATOR</span>';
-          roleBadge.innerHTML = '🛡️';
-          roleBadge.className = 'h-10 w-10 rounded-lg bg-emerald-950/80 border border-emerald-600 flex items-center justify-center text-xl';
+    function syncHeaderDisplay() {
+      const accountSelector = document.getElementById('account-selector');
+      if (accountSelector) {
+        if (currentAuthRole === 'ADMIN') {
+          accountSelector.value = 'admin';
+        } else if (currentAuthEmail === 'customer2@example.com') {
+          accountSelector.value = 'customer2';
         } else {
-          roleText.innerHTML = '<span class="inline-block h-2.5 w-2.5 rounded-full bg-blue-400"></span><span>CUSTOMER (PELANGGAN)</span>';
-          roleBadge.innerHTML = '🎟️';
-          roleBadge.className = 'h-10 w-10 rounded-lg bg-blue-950/80 border border-blue-600 flex items-center justify-center text-xl';
+          accountSelector.value = 'customer1';
         }
-        emailText.textContent = currentEmail;
-      } else {
-        logoutBtn.classList.add('hidden');
-        roleText.innerHTML = '<span class="inline-block h-2.5 w-2.5 rounded-full bg-slate-500"></span><span>Tamu (Belum Login)</span>';
-        emailText.textContent = 'Klik tombol Masuk Admin atau Masuk Customer';
-        roleBadge.innerHTML = '👤';
-        roleBadge.className = 'h-10 w-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-xl';
       }
     }
 
-    async function loadSchedules() {
-      const tbody = document.getElementById('schedules-tbody');
-      tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">Memuat data jadwal tayang...</td></tr>';
+    // 6. Schedules API Fetching
+    async function refreshSchedules() {
+      const adminTableBody = document.getElementById('schedules-table-body');
+      const adminCountLabel = document.getElementById('schedules-count-label');
+      const customerTableBody = document.getElementById('customer-schedules-table-body');
+
+      const loadingMsg = '<tr><td colspan="6" class="py-10 text-center text-slate-500 text-xs">Querying schedules...</td></tr>';
+      if (adminTableBody) adminTableBody.innerHTML = loadingMsg;
+      if (customerTableBody) customerTableBody.innerHTML = loadingMsg;
 
       try {
         const headers = {};
-        if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
-        
-        const res = await fetch('/api/v1/schedules', { headers });
-        const json = await res.json();
+        if (currentAuthToken) {
+          headers['Authorization'] = 'Bearer ' + currentAuthToken;
+        }
 
-        if (res.status === 401) {
-          tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-amber-400">
-            🔒 Endpoint ini terproteksi JWT Auth.<br>
-            <span class="text-xs text-slate-400 mt-1 inline-block">Klik <strong>Masuk Admin</strong> atau <strong>Masuk Customer</strong> di pojok kanan atas untuk melihat jadwal.</span>
-          </td></tr>`;
+        const response = await fetch('/api/v1/schedules', { headers });
+        const json = await response.json();
+
+        if (!response.ok) {
+          const err = `<tr><td colspan="6" class="py-8 text-center text-slate-500 text-xs">Sign in required (${response.status})</td></tr>`;
+          if (adminTableBody) adminTableBody.innerHTML = err;
+          if (customerTableBody) customerTableBody.innerHTML = err;
           return;
         }
 
-        if (!res.ok) {
-          tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-rose-400">Galat: ${json.error ? json.error.message : 'Gagal memuat jadwal'}</td></tr>`;
-          return;
+        const schedules = json.data || [];
+        if (adminCountLabel) adminCountLabel.textContent = `Total entries: ${schedules.length}`;
+
+        // Populate Customer Table
+        if (customerTableBody) {
+          customerTableBody.innerHTML = schedules.map(item => {
+            const movieTitle = item.movie_id === 1 ? 'Inception' : (item.movie_id === 2 ? 'Interstellar' : 'Movie #' + item.movie_id);
+            const studioTitle = item.studio_id === 1 ? 'Studio 1 (IMAX)' : 'Studio 2 (Regular)';
+            const start = new Date(item.start_time);
+            const end = new Date(item.end_time);
+            const timeFormatted = `${formatDate(start)}, ${formatTime(start)} - ${formatTime(end)}`;
+            const isCancelled = item.status === 'CANCELLED';
+
+            const statusMarkup = isCancelled
+              ? '<span class="text-slate-400 font-mono text-[11px]">Closed</span>'
+              : '<span class="text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-mono font-medium">Available</span>';
+
+            let actionBtn = '';
+            if (currentAuthRole === 'ADMIN') {
+              actionBtn = `
+                <div class="flex items-center justify-end gap-2">
+                  ${!isCancelled ? `<button onclick="bookScheduleSeats(${item.id}, ${item.movie_id}, ${item.studio_id}, '${studioTitle}', '${movieTitle}', '${timeFormatted}')" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors">Select Seats</button>` : ''}
+                  ${!isCancelled ? `<button onclick="deleteSchedule(${item.id})" class="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-xs font-medium transition-colors" title="Delete screening showtime">Delete</button>` : '<span class="text-slate-400 text-xs italic">Deleted</span>'}
+                </div>
+              `;
+            } else {
+              actionBtn = isCancelled
+                ? '<span class="text-slate-400 text-xs italic">Unavailable</span>'
+                : `<button onclick="bookScheduleSeats(${item.id}, ${item.movie_id}, ${item.studio_id}, '${studioTitle}', '${movieTitle}', '${timeFormatted}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors">Select Seats &rarr;</button>`;
+            }
+
+            return `
+              <tr class="hover:bg-[#FAF8F5] transition-colors">
+                <td class="py-3 px-3 font-semibold text-slate-900">${movieTitle}</td>
+                <td class="py-3 px-3 text-slate-600">${studioTitle}</td>
+                <td class="py-3 px-3 text-slate-600 font-mono text-[11px]">${timeFormatted}</td>
+                <td class="py-3 px-3">${statusMarkup}</td>
+                <td class="py-3 px-3 text-right">${actionBtn}</td>
+              </tr>
+            `;
+          }).join('');
         }
 
-        const data = json.data || [];
-        if (data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">Belum ada jadwal tayang.</td></tr>';
-          return;
+        // Populate Admin Table
+        if (adminTableBody) {
+          adminTableBody.innerHTML = schedules.map(item => {
+            const movieTitle = item.movie_id === 1 ? 'Inception' : (item.movie_id === 2 ? 'Interstellar' : 'Movie #' + item.movie_id);
+            const studioTitle = item.studio_id === 1 ? 'Studio 1 (IMAX)' : 'Studio 2 (Regular)';
+            const start = new Date(item.start_time);
+            const end = new Date(item.end_time);
+            const timeFormatted = `${formatDate(start)}, ${formatTime(start)} - ${formatTime(end)}`;
+            const isCancelled = item.status === 'CANCELLED';
+
+            const statusMarkup = isCancelled
+              ? '<span class="text-slate-500 font-mono text-[10px] bg-[#FAF8F5] border border-[#E6E1D8] px-2 py-0.5 rounded">CANCELLED</span>'
+              : '<span class="text-blue-700 font-mono text-[10px] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">SCHEDULED</span>';
+
+            const actionBtn = isCancelled
+              ? '<span class="text-slate-400 italic text-[11px]">Deleted</span>'
+              : `<button onclick="deleteSchedule(${item.id})" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-[11px] font-sans font-medium transition-colors" title="Delete screening schedule">Delete</button>`;
+
+            return `
+              <tr class="hover:bg-[#FAF8F5] transition-colors">
+                <td class="py-3 px-3 font-mono font-bold text-slate-700">#${item.id}</td>
+                <td class="py-3 px-3 font-medium text-slate-900 font-sans">${movieTitle}</td>
+                <td class="py-3 px-3 text-slate-600 font-sans">${studioTitle}</td>
+                <td class="py-3 px-3 text-slate-600 font-mono text-[11px]">${timeFormatted}</td>
+                <td class="py-3 px-3">${statusMarkup}</td>
+                <td class="py-3 px-3 text-right font-sans">${actionBtn}</td>
+              </tr>
+            `;
+          }).join('');
         }
-
-        tbody.innerHTML = data.map(j => {
-          const filmName = j.movie_id === 1 ? 'Inception' : (j.movie_id === 2 ? 'Interstellar' : 'Film #' + j.movie_id);
-          const studioName = j.studio_id === 1 ? 'Studio 1 (IMAX)' : 'Studio 2 (Regular)';
-          
-          const start = new Date(j.start_time);
-          const end = new Date(j.end_time);
-          const timeStr = `${start.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}, ${start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB`;
-
-          const isCancelled = j.status === 'CANCELLED';
-          const statusBadge = isCancelled 
-            ? '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-950 text-rose-400 border border-rose-800">CANCELLED</span>'
-            : '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">SCHEDULED</span>';
-
-          const actionBtn = isCancelled
-            ? '<span class="text-slate-500 italic">Dibatalkan</span>'
-            : `<button onclick="cancelSchedule(${j.id})" class="px-2 py-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded text-[11px] transition-colors">Batalkan</button>`;
-
-          return `
-            <tr class="hover:bg-slate-800/40 transition-colors">
-              <td class="py-3 px-3 font-bold text-slate-300">#${j.id}</td>
-              <td class="py-3 px-3 font-sans font-semibold text-slate-100">${filmName}</td>
-              <td class="py-3 px-3 text-slate-300">${studioName}</td>
-              <td class="py-3 px-3 text-slate-300">${timeStr}</td>
-              <td class="py-3 px-3">${statusBadge}</td>
-              <td class="py-3 px-3 text-right">${actionBtn}</td>
-            </tr>
-          `;
-        }).join('');
 
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-rose-400">Koneksi backend gagal: ${err.message}</td></tr>`;
+        console.error('Schedule fetch error:', err);
       }
     }
 
-    async function handleCreateSchedule(e) {
-      e.preventDefault();
+    function formatDate(d) {
+      return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+    function formatTime(d) {
+      return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
 
-      if (!authToken) {
-        showAlert('warning', 'Wajib Login Terlebih Dahulu', 'Silakan klik tombol "Masuk Admin" di atas untuk mendapatkan token otorisasi.');
+    // 7. Customer Action: Book Seats
+    function bookScheduleSeats(scheduleId, movieId, studioId, studioName, movieTitle, timeLabel) {
+      activeBookingContext = {
+        scheduleId,
+        movieId,
+        studioId,
+        studioName: studioName || (studioId === 1 ? 'Studio 1 (IMAX)' : 'Studio 2 (Regular)'),
+        movieTitle: movieTitle || (movieId === 1 ? 'Inception' : 'Interstellar'),
+        timeLabel: timeLabel || 'Oct 1, 2026'
+      };
+
+      document.getElementById('seat-active-movie-label').textContent = `${activeBookingContext.movieTitle} (${activeBookingContext.studioName})`;
+      document.getElementById('seat-active-time-label').textContent = `${activeBookingContext.timeLabel} • 10-Minute Hold Guarantee`;
+
+      switchCustomerTab('seats');
+      showToast('info', 'Screening Loaded', `Viewing seat map for ${activeBookingContext.movieTitle} in ${activeBookingContext.studioName}`);
+    }
+
+    // 8. Seat Map & 10-Minute Hold Logic
+    let seatStateRecord = {};
+    let seatHoldOwners = {};
+    let activeHoldSeatKey = null;
+
+    function initSeatMap() {
+      const container = document.getElementById('seatmap-grid-container');
+      const rows = ['A', 'B', 'C', 'D', 'E'];
+
+      if (Object.keys(seatStateRecord).length === 0) {
+        rows.forEach(rowLetter => {
+          for (let seatNumber = 1; seatNumber <= 6; seatNumber++) {
+            const key = `${rowLetter}${seatNumber}`;
+            seatStateRecord[key] = (key === 'A1' || key === 'A2') ? 'SOLD' : 'AVAILABLE';
+          }
+        });
+      }
+
+      container.innerHTML = rows.map(rowLetter => {
+        let leftCol = '';
+        let rightCol = '';
+
+        for (let seatNumber = 1; seatNumber <= 6; seatNumber++) {
+          const key = `${rowLetter}${seatNumber}`;
+          const state = seatStateRecord[key];
+          const holder = seatHoldOwners[key];
+
+          let seatStyle = 'bg-white hover:border-blue-500 hover:text-blue-600 border-[#CBD5E1] text-slate-700 cursor-pointer shadow-sm';
+          let disabled = '';
+          let title = `Seat ${key} - Available`;
+
+          if (state === 'SOLD') {
+            seatStyle = 'bg-[#EFECE6] border-[#DDD8CF] text-slate-400 cursor-not-allowed';
+            disabled = 'disabled';
+            title = `Seat ${key} - Sold`;
+          } else if (state === 'HELD') {
+            const isMe = holder && holder.email === currentAuthEmail;
+            if (isMe) {
+              seatStyle = 'bg-blue-600 text-white font-bold border-blue-600 shadow-sm cursor-pointer';
+              title = `Seat ${key} - Held by you`;
+            } else {
+              seatStyle = 'bg-slate-100 border border-dashed border-slate-400 text-slate-500 font-bold cursor-not-allowed';
+              title = `Seat ${key} - Held by another customer`;
+            }
+          }
+
+          const btn = `
+            <button onclick="handleSeatSelect('${key}')" ${disabled} title="${title}" class="h-9 w-10 rounded text-[11px] font-mono font-medium border transition-all flex items-center justify-center ${seatStyle}">
+              ${key}
+            </button>
+          `;
+
+          if (seatNumber <= 3) leftCol += btn;
+          else rightCol += btn;
+        }
+
+        return `
+          <div class="flex items-center justify-between gap-2">
+            <span class="w-5 text-slate-400 font-bold text-xs text-center">${rowLetter}</span>
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1.5">${leftCol}</div>
+              <div class="w-6 border-b border-dashed border-[#CBD5E1]"></div>
+              <div class="flex items-center gap-1.5">${rightCol}</div>
+            </div>
+            <span class="w-5 text-slate-400 font-bold text-xs text-center">${rowLetter}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Synchronize hold state to the currently active user
+    function syncUserHoldState() {
+      let myHeldSeat = null;
+      for (const [seatKey, holder] of Object.entries(seatHoldOwners)) {
+        if (holder && holder.email === currentAuthEmail && seatStateRecord[seatKey] === 'HELD') {
+          myHeldSeat = seatKey;
+          break;
+        }
+      }
+
+      const countdownBox = document.getElementById('seat-countdown-box');
+      const controlsRow = document.getElementById('seat-controls-row');
+      const statusCaption = document.getElementById('seat-status-caption');
+
+      if (myHeldSeat) {
+        activeHoldSeatKey = myHeldSeat;
+        if (countdownBox) countdownBox.classList.remove('hidden');
+        if (controlsRow) controlsRow.classList.remove('hidden');
+        if (statusCaption) statusCaption.innerHTML = `Seat <strong>${myHeldSeat}</strong> selected. 10-minute hold active.`;
+      } else {
+        activeHoldSeatKey = null;
+        if (countdownIntervalId) {
+          clearInterval(countdownIntervalId);
+          countdownIntervalId = null;
+        }
+        if (countdownBox) countdownBox.classList.add('hidden');
+        if (controlsRow) controlsRow.classList.add('hidden');
+        if (statusCaption) statusCaption.textContent = 'Click any available seat above.';
+      }
+
+      initSeatMap();
+    }
+
+    function handleSeatSelect(seatKey) {
+      const state = seatStateRecord[seatKey];
+      const holder = seatHoldOwners[seatKey];
+
+      if (state === 'SOLD') {
+        showToast('info', 'Seat Unavailable', `Seat ${seatKey} has already been booked.`);
         return;
       }
 
-      const movieId = parseInt(document.getElementById('input-movie-id').value);
-      const studioId = parseInt(document.getElementById('input-studio-id').value);
-      const startTimeInput = document.getElementById('input-start-time').value;
-      const endTimeInput = document.getElementById('input-end-time').value;
+      if (state === 'HELD' && holder && holder.email !== currentAuthEmail) {
+        showToast('warning', 'Seat On Hold', `Seat ${seatKey} is temporarily held by another customer. Simultaneous booking prevented.`);
+        return;
+      }
+
+      if (activeHoldSeatKey && activeHoldSeatKey !== seatKey && seatHoldOwners[activeHoldSeatKey]?.email === currentAuthEmail) {
+        seatStateRecord[activeHoldSeatKey] = 'AVAILABLE';
+        delete seatHoldOwners[activeHoldSeatKey];
+      }
+
+      activeHoldSeatKey = seatKey;
+      seatStateRecord[seatKey] = 'HELD';
+      seatHoldOwners[seatKey] = {
+        email: currentAuthEmail
+      };
+      initSeatMap();
+
+      document.getElementById('seat-countdown-box').classList.remove('hidden');
+      document.getElementById('seat-controls-row').classList.remove('hidden');
+      document.getElementById('seat-status-caption').innerHTML = `Seat <strong>${seatKey}</strong> selected. 10-minute hold active.`;
+
+      triggerCountdown(10 * 60);
+      showToast('success', `Seat ${seatKey} Held`, `10-minute hold secured for Seat ${seatKey}.`);
+    }
+
+    function triggerCountdown(seconds) {
+      if (countdownIntervalId) clearInterval(countdownIntervalId);
+      let rem = seconds;
+      const display = document.getElementById('seat-countdown-display');
+
+      countdownIntervalId = setInterval(() => {
+        rem--;
+        if (rem <= 0) {
+          clearInterval(countdownIntervalId);
+          releaseSeatLock();
+          showToast('warning', 'Hold Expired', `Hold on seat ${activeHoldSeatKey} expired and was returned to available.`);
+          return;
+        }
+        const m = Math.floor(rem / 60);
+        const s = rem % 60;
+        display.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }, 1000);
+    }
+
+    function commitSeatPurchase() {
+      if (!activeHoldSeatKey) return;
+      if (seatHoldOwners[activeHoldSeatKey]?.email !== currentAuthEmail) {
+        showToast('error', 'Unauthorized', 'You do not hold this seat.');
+        syncUserHoldState();
+        return;
+      }
+      if (countdownIntervalId) clearInterval(countdownIntervalId);
+
+      const seat = activeHoldSeatKey;
+      seatStateRecord[seat] = 'SOLD';
+      delete seatHoldOwners[seat];
+      showToast('success', 'Ticket Confirmed', `Reservation for Seat ${seat} is confirmed.`);
+
+      activeHoldSeatKey = null;
+      syncUserHoldState();
+    }
+
+    function releaseSeatLock() {
+      if (!activeHoldSeatKey) return;
+      if (seatHoldOwners[activeHoldSeatKey]?.email !== currentAuthEmail) {
+        syncUserHoldState();
+        return;
+      }
+      if (countdownIntervalId) clearInterval(countdownIntervalId);
+
+      const seat = activeHoldSeatKey;
+      seatStateRecord[seat] = 'AVAILABLE';
+      delete seatHoldOwners[seat];
+      showToast('info', 'Seat Released', `Seat ${seat} returned to available pool.`);
+
+      activeHoldSeatKey = null;
+      syncUserHoldState();
+    }
+
+    // 9. Admin Schedule Creation
+    function initTimeInputs() {
+      const start = new Date();
+      start.setDate(start.getDate() + 2);
+      start.setHours(19, 0, 0, 0);
+      const end = new Date(start.getTime() + 2.5 * 60 * 60 * 1000);
+
+      const toISO = d => {
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      };
+
+      document.getElementById('input-start-time').value = toISO(start);
+      document.getElementById('input-end-time').value = toISO(end);
+    }
+
+    async function submitSchedule(e) {
+      e.preventDefault();
 
       const payload = {
-        movie_id: movieId,
-        studio_id: studioId,
-        start_time: new Date(startTimeInput).toISOString(),
-        end_time: new Date(endTimeInput).toISOString()
+        movie_id: parseInt(document.getElementById('select-movie-id').value),
+        studio_id: parseInt(document.getElementById('select-studio-id').value),
+        start_time: new Date(document.getElementById('input-start-time').value).toISOString(),
+        end_time: new Date(document.getElementById('input-end-time').value).toISOString()
       };
 
       try {
@@ -632,226 +1104,234 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + authToken
+            'Authorization': 'Bearer ' + currentAuthToken
           },
           body: JSON.stringify(payload)
         });
-
         const json = await res.json();
 
         if (res.status === 201) {
-          showAlert('success', '✅ Jadwal Berhasil Dibuat (HTTP 201 Created)', `ID Jadwal: #${json.data.id} berhasil dijadwalkan pada Studio ${studioId}.`);
-          loadSchedules();
+          showToast('success', 'Schedule Created', `Schedule #${json.data.id} published successfully.`);
+          refreshSchedules();
+          switchAdminTab('manage');
         } else if (res.status === 409) {
-          showAlert('error', '⚠️ HTTP 409 CONFLICT — JADWAL BERTABRAKAN!', `Pesan Server: "${json.error ? json.error.message : 'Studio already has an overlapping schedule'}". Algoritma backend berhasil mencegah jadwal ganda pada studio yang sama!`);
-        } else if (res.status === 403) {
-          showAlert('error', '⛔ HTTP 403 FORBIDDEN — HAK AKSES DITOLAK', 'Peran CUSTOMER tidak berhak membuat jadwal. Masuk sebagai ADMIN untuk dapat membuat jadwal.');
+          showToast('error', 'Conflict Blocked (409)', json.error ? json.error.message : 'Studio already has an overlapping screening.');
         } else {
-          showAlert('error', `Galat HTTP ${res.status}`, json.error ? json.error.message : 'Terjadi kesalahan');
+          showToast('error', 'Error', json.error ? json.error.message : 'Could not create schedule.');
         }
       } catch (err) {
-        showAlert('error', 'Gagal Terhubung ke API', err.message);
+        showToast('error', 'Network Error', err.message);
       }
     }
 
-    async function cancelSchedule(id) {
-      if (!confirm(`Batalkan jadwal tayang #${id}? Tindakan ini bersifat logis (status menjadi CANCELLED) tanpa menghapus data.`)) return;
-
-      if (!authToken) {
-        showAlert('warning', 'Wajib Login Admin', 'Silakan login sebagai Admin untuk membatalkan jadwal.');
-        return;
-      }
+    // 10. Admin Delete Schedule
+    async function deleteSchedule(id) {
+      if (!confirm(`Are you sure you want to delete screening schedule #${id}?`)) return;
 
       try {
         const res = await fetch('/api/v1/schedules/' + id, {
           method: 'DELETE',
-          headers: {
-            'Authorization': 'Bearer ' + authToken
-          }
+          headers: { 'Authorization': 'Bearer ' + currentAuthToken }
         });
 
         if (res.status === 204) {
-          showAlert('success', '✅ Jadwal Dibatalkan (HTTP 204 No Content)', `Jadwal #${id} telah diubah statusnya menjadi CANCELLED secara aman.`);
-          loadSchedules();
+          showToast('success', 'Schedule Deleted', `Screening schedule #${id} has been deleted.`);
+          refreshSchedules();
         } else if (res.status === 403) {
-          showAlert('error', '⛔ HTTP 403 FORBIDDEN', 'Hanya Admin yang berhak membatalkan jadwal.');
+          showToast('error', 'Unauthorized', 'Only administrators can delete screening schedules.');
         } else {
-          const json = await res.json();
-          showAlert('error', 'Gagal Membatalkan', json.error ? json.error.message : 'Status ' + res.status);
+          showToast('error', 'Failed', 'Could not delete screening schedule.');
         }
       } catch (err) {
-        showAlert('error', 'Koneksi Gagal', err.message);
+        showToast('error', 'Network Error', err.message);
       }
     }
+    const cancelSchedule = deleteSchedule;
 
-    // SIMULASI SEAT MAP (POIN A)
-    let seatsState = {};
+    // 11. Admin Conflict Test Scenarios (Dedicated message & server response per scenario)
+    let lastScenarioScheduleId = {
+      parallel: null,
+      consecutive: null
+    };
 
-    function renderSeatMap() {
-      const container = document.getElementById('seats-container');
-      const rows = ['A', 'B', 'C'];
-      
-      // Default initial states
-      if (Object.keys(seatsState).length === 0) {
-        rows.forEach(r => {
-          for (let n = 1; n <= 5; n++) {
-            const key = `${r}${n}`;
-            seatsState[key] = (key === 'A1' || key === 'A2') ? 'BOOKED' : 'AVAILABLE';
-          }
+    async function runConflictScenario(presetKey) {
+      const box = document.getElementById(`result-box-${presetKey}`);
+      const statusEl = document.getElementById(`result-status-${presetKey}`);
+      const msgEl = document.getElementById(`result-msg-${presetKey}`);
+      const bodyEl = document.getElementById(`result-body-${presetKey}`);
+
+      let payload = {};
+      let pendingDesc = '';
+
+      if (presetKey === 'collision') {
+        payload = {
+          movie_id: 2,
+          studio_id: 1,
+          start_time: '2026-10-01T20:00:00+07:00',
+          end_time: '2026-10-01T22:30:00+07:00'
+        };
+        pendingDesc = 'Testing Studio 1 collision against seed Inception (19:00 - 21:28)...';
+      } else if (presetKey === 'parallel') {
+        if (lastScenarioScheduleId.parallel) {
+          await fetch('/api/v1/schedules/' + lastScenarioScheduleId.parallel, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + currentAuthToken }
+          }).catch(() => {});
+          lastScenarioScheduleId.parallel = null;
+        }
+
+        payload = {
+          movie_id: 2,
+          studio_id: 2,
+          start_time: '2026-10-01T20:00:00+07:00',
+          end_time: '2026-10-01T22:30:00+07:00'
+        };
+        pendingDesc = 'Testing parallel screening in Studio 2 at same time window...';
+      } else if (presetKey === 'consecutive') {
+        if (lastScenarioScheduleId.consecutive) {
+          await fetch('/api/v1/schedules/' + lastScenarioScheduleId.consecutive, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + currentAuthToken }
+          }).catch(() => {});
+          lastScenarioScheduleId.consecutive = null;
+        }
+
+        payload = {
+          movie_id: 1,
+          studio_id: 1,
+          start_time: '2026-10-01T21:30:00+07:00',
+          end_time: '2026-10-01T23:58:00+07:00'
+        };
+        pendingDesc = 'Testing consecutive screening in Studio 1 after 21:28...';
+      }
+
+      showToast('info', 'Running Test', pendingDesc);
+      box.classList.remove('hidden');
+      statusEl.textContent = 'Executing...';
+      msgEl.textContent = 'Submitting scenario request to server...';
+      bodyEl.textContent = JSON.stringify(payload, null, 2);
+
+      try {
+        let res = await fetch('/api/v1/schedules', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + currentAuthToken
+          },
+          body: JSON.stringify(payload)
         });
-      }
 
-      container.innerHTML = rows.map(r => {
-        let cols = '';
-        for (let n = 1; n <= 5; n++) {
-          const key = `${r}${n}`;
-          const state = seatsState[key];
-          let btnClass = 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer';
-          let label = key;
-
-          if (state === 'BOOKED') {
-            btnClass = 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-60';
-          } else if (state === 'RESERVED') {
-            btnClass = 'bg-amber-500 text-slate-950 font-bold animate-pulse-gold cursor-pointer';
+        // If a prior session already left this slot created, clean it up and retry once to confirm 201
+        if (res.status === 409 && (presetKey === 'parallel' || presetKey === 'consecutive')) {
+          const listRes = await fetch('/api/v1/schedules', {
+            headers: { 'Authorization': 'Bearer ' + currentAuthToken }
+          });
+          const listJson = await listRes.json().catch(() => ({}));
+          const existingSlot = (listJson.data || []).find(s =>
+            s.studio_id === payload.studio_id &&
+            s.status !== 'CANCELLED' &&
+            s.id !== 1
+          );
+          if (existingSlot) {
+            await fetch('/api/v1/schedules/' + existingSlot.id, {
+              method: 'DELETE',
+              headers: { 'Authorization': 'Bearer ' + currentAuthToken }
+            });
+            res = await fetch('/api/v1/schedules', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + currentAuthToken
+              },
+              body: JSON.stringify(payload)
+            });
           }
-
-          cols += `
-            <button onclick="handleSeatClick('${key}')" class="h-10 w-11 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${btnClass}">
-              ${label}
-            </button>
-          `;
         }
 
-        return `
-          <div class="flex items-center justify-between">
-            <span class="w-6 text-slate-500 font-bold text-center">${r}</span>
-            <div class="flex space-x-2.5">${cols}</div>
-            <span class="w-6 text-slate-500 font-bold text-center">${r}</span>
-          </div>
-        `;
-      }).join('');
-    }
+        const json = await res.json().catch(() => ({}));
+        bodyEl.textContent = JSON.stringify(json, null, 2);
 
-    let activeLockedSeat = null;
-
-    function handleSeatClick(seatKey) {
-      const current = seatsState[seatKey];
-      if (current === 'BOOKED') {
-        showAlert('info', 'Kursi Sudah Terjual', `Kursi ${seatKey} sudah dibayar oleh pelanggan lain.`);
-        return;
-      }
-
-      if (current === 'RESERVED' && activeLockedSeat !== seatKey) {
-        showAlert('warning', '⚠️ Kursi Sedang Terkunci!', `Kursi ${seatKey} saat ini sedang ditahan (hold) oleh pembeli lain. Sistem Redis Redlock mencegah Anda mengambil kursi ini.`);
-        return;
-      }
-
-      // Kunci kursi
-      if (activeLockedSeat && activeLockedSeat !== seatKey) {
-        seatsState[activeLockedSeat] = 'AVAILABLE';
-      }
-
-      activeLockedSeat = seatKey;
-      seatsState[seatKey] = 'RESERVED';
-      renderSeatMap();
-
-      document.getElementById('seat-timer').classList.remove('hidden');
-      document.getElementById('seat-actions').classList.remove('hidden');
-      document.getElementById('selected-seat-msg').innerHTML = `<strong class="text-amber-400">Kursi ${seatKey}</strong> terkunci atas nama Anda. Gembok Redis aktif (TTL 10 menit).`;
-
-      startCountdown(10 * 60);
-
-      showAlert('success', `🔒 Kursi ${seatKey} Berhasil Dikunci!`, 'Sistem menggunakan Redis Distributed Lock (SET NX PX) dengan batas waktu pembayaran 10 menit. Tidak ada pengguna lain yang dapat memilih kursi ini.');
-    }
-
-    function startCountdown(seconds) {
-      if (seatTimerInterval) clearInterval(seatTimerInterval);
-      let left = seconds;
-      const display = document.getElementById('timer-display');
-
-      seatTimerInterval = setInterval(() => {
-        left--;
-        if (left <= 0) {
-          clearInterval(seatTimerInterval);
-          simulateReleaseHold();
-          showAlert('warning', '⌛ Waktu Pembayaran Habis (Auto-Restock)', `Masa hold kursi ${activeLockedSeat} telah berakhir. Sistem Kafka worker otomatis melepaskan kunci dan mengembalikan status kursi menjadi AVAILABLE.`);
-          return;
+        if (presetKey === 'collision') {
+          if (res.status === 409) {
+            statusEl.textContent = 'HTTP 409 Conflict (Blocked)';
+            statusEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white border border-slate-300 text-slate-800';
+            msgEl.textContent = 'Collision Blocked: Studio 1 is already hosting Inception (19:00 - 21:28). Because both screenings require the same auditorium and screen, the request was rejected with HTTP 409 to prevent double-booking.';
+            showToast('warning', 'Scenario 1: Collision Prevented (409)', 'Studio 1 overlap rejected. Double-booking prevented.');
+          } else {
+            statusEl.textContent = `HTTP ${res.status} Response`;
+            statusEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white border border-slate-300 text-slate-800';
+            msgEl.textContent = json.error ? json.error.message : 'Unexpected response status.';
+          }
+        } else if (presetKey === 'parallel') {
+          if (res.status === 201) {
+            if (json.data && json.data.id) lastScenarioScheduleId.parallel = json.data.id;
+            statusEl.textContent = 'HTTP 201 Created (Approved)';
+            statusEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 border border-blue-200 text-blue-700';
+            msgEl.textContent = 'Parallel Approved: Scheduled in Studio 2 (20:00 - 22:30). Studio 2 is an independent physical hall with its own screen, so simultaneous screening alongside Studio 1 is allowed.';
+            showToast('success', 'Scenario 2: Parallel Studio Approved (201)', 'Studio 2 screening published. Separate auditorium verified.');
+            refreshSchedules();
+          } else {
+            statusEl.textContent = `HTTP ${res.status} Response`;
+            statusEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white border border-slate-300 text-slate-800';
+            msgEl.textContent = json.error ? json.error.message : 'Unexpected response status.';
+          }
+        } else if (presetKey === 'consecutive') {
+          if (res.status === 201) {
+            if (json.data && json.data.id) lastScenarioScheduleId.consecutive = json.data.id;
+            statusEl.textContent = 'HTTP 201 Created (Approved)';
+            statusEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 border border-blue-200 text-blue-700';
+            msgEl.textContent = 'Consecutive Approved: Studio 1 screening starts at 21:30, after Inception finishes at 21:28. The time intervals do not intersect, so the auditorium is vacant and approved.';
+            showToast('success', 'Scenario 3: Consecutive Slot Approved (201)', 'Studio 1 consecutive showtime published without time collision.');
+            refreshSchedules();
+          } else {
+            statusEl.textContent = `HTTP ${res.status} Response`;
+            statusEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white border border-slate-300 text-slate-800';
+            msgEl.textContent = json.error ? json.error.message : 'Unexpected response status.';
+          }
         }
-        const m = Math.floor(left / 60);
-        const s = left % 60;
-        display.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-      }, 1000);
+      } catch (err) {
+        statusEl.textContent = 'Network Error';
+        msgEl.textContent = err.message;
+        bodyEl.textContent = err.stack || err.message;
+        showToast('error', 'Test Error', err.message);
+      }
     }
 
-    function simulateCompletePayment() {
-      if (!activeLockedSeat) return;
-      if (seatTimerInterval) clearInterval(seatTimerInterval);
-      seatsState[activeLockedSeat] = 'BOOKED';
-      showAlert('success', '🎉 Pembayaran Berhasil!', `Kursi ${activeLockedSeat} resmi BOOKED. E-Tiket QR Code telah diterbitkan.`);
-      activeLockedSeat = null;
-      document.getElementById('seat-timer').classList.add('hidden');
-      document.getElementById('seat-actions').classList.add('hidden');
-      document.getElementById('selected-seat-msg').textContent = 'Pemesanan selesai.';
-      renderSeatMap();
-    }
+    // 12. Toast Feedback
+    function showToast(kind, title, detail) {
+      const box = document.getElementById('toast-box');
+      const iconWrap = document.getElementById('toast-icon-wrap');
+      const titleEl = document.getElementById('toast-title');
+      const msgEl = document.getElementById('toast-message');
 
-    function simulateReleaseHold() {
-      if (!activeLockedSeat) return;
-      if (seatTimerInterval) clearInterval(seatTimerInterval);
-      seatsState[activeLockedSeat] = 'AVAILABLE';
-      showAlert('info', '🔄 Kunci Kursi Dilepaskan (Restocked)', `Kursi ${activeLockedSeat} kini kembali tersedia (AVAILABLE) untuk seluruh pelanggan.`);
-      activeLockedSeat = null;
-      document.getElementById('seat-timer').classList.add('hidden');
-      document.getElementById('seat-actions').classList.add('hidden');
-      document.getElementById('selected-seat-msg').textContent = 'Klik salah satu kursi hijau untuk memesan.';
-      renderSeatMap();
-    }
+      titleEl.textContent = title;
+      msgEl.textContent = detail;
 
-    // TABS SWITCHER
-    function switchTab(tab) {
-      const tabs = ['schedules', 'seatmap', 'deliverables'];
-      tabs.forEach(t => {
-        const btn = document.getElementById('tab-btn-' + t);
-        const content = document.getElementById('tab-content-' + t);
-        if (t === tab) {
-          btn.className = 'pb-3 border-b-2 border-emerald-500 text-emerald-400 font-semibold flex items-center gap-2';
-          content.classList.remove('hidden');
-        } else {
-          btn.className = 'pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-2';
-          content.classList.add('hidden');
-        }
-      });
-    }
-
-    function showAlert(type, title, desc) {
-      const banner = document.getElementById('alert-banner');
-      const box = document.getElementById('alert-box');
-      const icon = document.getElementById('alert-icon');
-      const t = document.getElementById('alert-title');
-      const d = document.getElementById('alert-desc');
-
-      banner.classList.remove('hidden');
-      t.textContent = title;
-      d.textContent = desc;
-
-      if (type === 'success') {
-        box.className = 'p-3.5 rounded-lg border border-emerald-600 bg-emerald-950/90 text-emerald-200 flex items-start justify-between text-sm shadow-lg';
-        icon.textContent = '✅';
-      } else if (type === 'error') {
-        box.className = 'p-3.5 rounded-lg border border-rose-600 bg-rose-950/90 text-rose-200 flex items-start justify-between text-sm shadow-lg';
-        icon.textContent = '❌';
-      } else if (type === 'warning') {
-        box.className = 'p-3.5 rounded-lg border border-amber-600 bg-amber-950/90 text-amber-200 flex items-start justify-between text-sm shadow-lg';
-        icon.textContent = '⚠️';
+      let iconSvg = '';
+      if (kind === 'success') {
+        box.className = 'pointer-events-auto p-3.5 rounded-lg border border-blue-200 bg-white shadow-lg text-xs flex items-start gap-3';
+        iconSvg = '<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>';
+      } else if (kind === 'error') {
+        box.className = 'pointer-events-auto p-3.5 rounded-lg border border-slate-300 bg-white shadow-lg text-xs flex items-start gap-3';
+        iconSvg = '<svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>';
+      } else if (kind === 'warning') {
+        box.className = 'pointer-events-auto p-3.5 rounded-lg border border-blue-200 bg-[#FAF8F5] shadow-lg text-xs flex items-start gap-3';
+        iconSvg = '<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>';
       } else {
-        box.className = 'p-3.5 rounded-lg border border-blue-600 bg-blue-950/90 text-blue-200 flex items-start justify-between text-sm shadow-lg';
-        icon.textContent = 'ℹ️';
+        box.className = 'pointer-events-auto p-3.5 rounded-lg border border-[#E6E1D8] bg-white shadow-lg text-xs flex items-start gap-3';
+        iconSvg = '<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
       }
+
+      iconWrap.innerHTML = iconSvg;
+      box.classList.remove('hidden');
     }
 
-    function dismissAlert() {
-      document.getElementById('alert-banner').classList.add('hidden');
+    function hideToast() {
+      document.getElementById('toast-box').classList.add('hidden');
     }
   </script>
+
+  <!-- Agentation Visual Feedback Toolbar for AI Pair Programming -->
+  <script src="/docs/agentation.js"></script>
 </body>
 </html>

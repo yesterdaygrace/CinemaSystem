@@ -6,86 +6,66 @@ import (
 	"time"
 )
 
-type repositoriTiruan struct {
-	jadwalPeta         map[int64]*Jadwal
-	idBerikutnya       int64
-	fungsiTumpangTindih func(studioID int64, startTime, endTime time.Time, excludeID int64) bool
+type mockScheduleRepository struct {
+	scheduleMap    map[int64]*Schedule
+	nextIdentifier int64
+	overlapFunc    func(studioIdentifier int64, startTime, endTime time.Time, excludeScheduleID int64) bool
 }
 
-func baruRepositoriTiruan() *repositoriTiruan {
-	return &repositoriTiruan{
-		jadwalPeta:   make(map[int64]*Jadwal),
-		idBerikutnya: 1,
+func newMockScheduleRepository() *mockScheduleRepository {
+	return &mockScheduleRepository{
+		scheduleMap:    make(map[int64]*Schedule),
+		nextIdentifier: 1,
 	}
 }
 
-func (m *repositoriTiruan) AmbilSemua(ctx context.Context) ([]Jadwal, error) {
-	var daftar []Jadwal
-	for _, j := range m.jadwalPeta {
-		daftar = append(daftar, *j)
+func (mock *mockScheduleRepository) FindAll(requestContext context.Context) ([]Schedule, error) {
+	var scheduleList []Schedule
+	for _, scheduleRecord := range mock.scheduleMap {
+		scheduleList = append(scheduleList, *scheduleRecord)
 	}
-	return daftar, nil
+	return scheduleList, nil
 }
 
-func (m *repositoriTiruan) FindAll(ctx context.Context) ([]Jadwal, error) {
-	return m.AmbilSemua(ctx)
-}
-
-func (m *repositoriTiruan) AmbilBerdasarkanID(ctx context.Context, id int64) (*Jadwal, error) {
-	j, ada := m.jadwalPeta[id]
-	if !ada {
-		return nil, GalatJadwalTidakDitemukan
+func (mock *mockScheduleRepository) FindByID(requestContext context.Context, scheduleIdentifier int64) (*Schedule, error) {
+	scheduleRecord, exists := mock.scheduleMap[scheduleIdentifier]
+	if !exists {
+		return nil, ErrScheduleNotFound
 	}
-	return j, nil
+	return scheduleRecord, nil
 }
 
-func (m *repositoriTiruan) FindByID(ctx context.Context, id int64) (*Jadwal, error) {
-	return m.AmbilBerdasarkanID(ctx, id)
-}
-
-func (m *repositoriTiruan) Buat(ctx context.Context, j *Jadwal) error {
-	j.ID = m.idBerikutnya
-	m.idBerikutnya++
-	m.jadwalPeta[j.ID] = j
+func (mock *mockScheduleRepository) Create(requestContext context.Context, scheduleRecord *Schedule) error {
+	scheduleRecord.ID = mock.nextIdentifier
+	mock.nextIdentifier++
+	mock.scheduleMap[scheduleRecord.ID] = scheduleRecord
 	return nil
 }
 
-func (m *repositoriTiruan) Create(ctx context.Context, s *Schedule) error {
-	return m.Buat(ctx, s)
-}
-
-func (m *repositoriTiruan) Perbarui(ctx context.Context, j *Jadwal) error {
-	m.jadwalPeta[j.ID] = j
+func (mock *mockScheduleRepository) Update(requestContext context.Context, scheduleRecord *Schedule) error {
+	mock.scheduleMap[scheduleRecord.ID] = scheduleRecord
 	return nil
 }
 
-func (m *repositoriTiruan) Update(ctx context.Context, s *Schedule) error {
-	return m.Perbarui(ctx, s)
-}
-
-func (m *repositoriTiruan) Batalkan(ctx context.Context, id int64) (*Jadwal, error) {
-	j, ada := m.jadwalPeta[id]
-	if !ada {
-		return nil, GalatJadwalTidakDitemukan
+func (mock *mockScheduleRepository) Cancel(requestContext context.Context, scheduleIdentifier int64) (*Schedule, error) {
+	scheduleRecord, exists := mock.scheduleMap[scheduleIdentifier]
+	if !exists {
+		return nil, ErrScheduleNotFound
 	}
-	j.Status = StatusDibatalkan
-	return j, nil
+	scheduleRecord.Status = StatusCancelled
+	return scheduleRecord, nil
 }
 
-func (m *repositoriTiruan) Cancel(ctx context.Context, id int64) (*Jadwal, error) {
-	return m.Batalkan(ctx, id)
-}
-
-func (m *repositoriTiruan) CekTumpangTindih(ctx context.Context, studioID int64, waktuMulai, waktuSelesai time.Time, kecualikanID int64) (bool, error) {
-	if m.fungsiTumpangTindih != nil {
-		return m.fungsiTumpangTindih(studioID, waktuMulai, waktuSelesai, kecualikanID), nil
+func (mock *mockScheduleRepository) HasOverlap(requestContext context.Context, studioIdentifier int64, startTime, endTime time.Time, excludeScheduleID int64) (bool, error) {
+	if mock.overlapFunc != nil {
+		return mock.overlapFunc(studioIdentifier, startTime, endTime, excludeScheduleID), nil
 	}
-	for _, j := range m.jadwalPeta {
-		if j.StudioID == studioID && j.Status != StatusDibatalkan {
-			if kecualikanID > 0 && j.ID == kecualikanID {
+	for _, scheduleRecord := range mock.scheduleMap {
+		if scheduleRecord.StudioID == studioIdentifier && scheduleRecord.Status != StatusCancelled {
+			if excludeScheduleID > 0 && scheduleRecord.ID == excludeScheduleID {
 				continue
 			}
-			if waktuMulai.Before(j.WaktuSelesai) && waktuSelesai.After(j.WaktuMulai) {
+			if startTime.Before(scheduleRecord.EndTime) && endTime.After(scheduleRecord.StartTime) {
 				return true, nil
 			}
 		}
@@ -93,81 +73,87 @@ func (m *repositoriTiruan) CekTumpangTindih(ctx context.Context, studioID int64,
 	return false, nil
 }
 
-func (m *repositoriTiruan) HasOverlap(ctx context.Context, studioID int64, startTime, endTime time.Time, excludeID int64) (bool, error) {
-	return m.CekTumpangTindih(ctx, studioID, startTime, endTime, excludeID)
+func (mock *mockScheduleRepository) CheckOverlap(requestContext context.Context, studioIdentifier int64, startTime, endTime time.Time, excludeScheduleID int64) (bool, error) {
+	return mock.HasOverlap(requestContext, studioIdentifier, startTime, endTime, excludeScheduleID)
 }
 
-func TestScheduleService_Create(t *testing.T) {
-	repo := baruRepositoriTiruan()
-	layanan := BaruLayanan(repo)
-	konteks := context.Background()
+func TestScheduleService_Create(testRunner *testing.T) {
+	mockRepository := newMockScheduleRepository()
+	scheduleServiceInstance := NewService(mockRepository)
+	testContext := context.Background()
 
-	sekarang := time.Now()
-	waktuMulai := sekarang.Add(2 * time.Hour)
-	waktuSelesai := waktuMulai.Add(2 * time.Hour)
+	currentTestTime := time.Now()
+	validStartTime := currentTestTime.Add(2 * time.Hour)
+	validEndTime := validStartTime.Add(2 * time.Hour)
 
-	// 1. Waktu tidak valid: waktu_selesai <= waktu_mulai
-	_, galat := layanan.BuatJadwal(konteks, PermintaanBuatJadwal{
-		FilmID:       1,
-		StudioID:     1,
-		WaktuMulai:   waktuSelesai,
-		WaktuSelesai: waktuMulai,
+	// 1. Invalid time range: end_time <= start_time
+	_, invalidTimeRangeError := scheduleServiceInstance.CreateSchedule(testContext, CreateScheduleRequest{
+		MovieID:   1,
+		StudioID:  1,
+		StartTime: validEndTime,
+		EndTime:   validStartTime,
 	})
-	if galat == nil {
-		t.Fatal("diharapkan galat saat waktu_selesai <= waktu_mulai, didapat nil")
+	if invalidTimeRangeError == nil {
+		testRunner.Fatal("expected error when end_time <= start_time, got nil")
 	}
 
-	// 2. Pembuatan jadwal berhasil
-	dibuat, galat := layanan.BuatJadwal(konteks, PermintaanBuatJadwal{
-		FilmID:       1,
-		StudioID:     1,
-		WaktuMulai:   waktuMulai,
-		WaktuSelesai: waktuSelesai,
+	// 2. Successful schedule creation
+	createdScheduleDTO, scheduleCreationError := scheduleServiceInstance.CreateSchedule(testContext, CreateScheduleRequest{
+		MovieID:   1,
+		StudioID:  1,
+		StartTime: validStartTime,
+		EndTime:   validEndTime,
 	})
-	if galat != nil {
-		t.Fatalf("diharapkan pembuatan jadwal berhasil, didapat: %v", galat)
+	if scheduleCreationError != nil {
+		testRunner.Fatalf("expected successful schedule creation, got: %v", scheduleCreationError)
 	}
-	if dibuat.ID != 1 || dibuat.Status != StatusJadwal {
-		t.Fatalf("jadwal tidak sesuai: %+v", dibuat)
+	if createdScheduleDTO.ID != 1 || createdScheduleDTO.Status != StatusScheduled {
+		testRunner.Fatalf("unexpected schedule data: %+v", createdScheduleDTO)
 	}
 
-	// 3. Konflik tumpang tindih waktu pada studio yang sama
-	mulaiKonflik := waktuMulai.Add(30 * time.Minute)
-	selesaiKonflik := waktuSelesai.Add(30 * time.Minute)
-	_, galat = layanan.BuatJadwal(konteks, PermintaanBuatJadwal{
-		FilmID:       2,
-		StudioID:     1,
-		WaktuMulai:   mulaiKonflik,
-		WaktuSelesai: selesaiKonflik,
+	// 3. Overlapping time conflict in the same studio
+	overlappingStartTime := validStartTime.Add(30 * time.Minute)
+	overlappingEndTime := validEndTime.Add(30 * time.Minute)
+	_, overlapScheduleError := scheduleServiceInstance.CreateSchedule(testContext, CreateScheduleRequest{
+		MovieID:   2,
+		StudioID:  1,
+		StartTime: overlappingStartTime,
+		EndTime:   overlappingEndTime,
 	})
-	if galat != GalatKonflikJadwal {
-		t.Fatalf("diharapkan GalatKonflikJadwal, didapat: %v", galat)
+	if overlapScheduleError != ErrScheduleConflict {
+		testRunner.Fatalf("expected ErrScheduleConflict, got: %v", overlapScheduleError)
 	}
 
-	// 4. Pembuatan di studio lain berhasil
-	_, galat = layanan.BuatJadwal(konteks, PermintaanBuatJadwal{
-		FilmID:       2,
-		StudioID:     2,
-		WaktuMulai:   mulaiKonflik,
-		WaktuSelesai: selesaiKonflik,
+	// 4. Creation in a different studio succeeds even with the same time slot
+	differentStudioScheduleDTO, differentStudioCreationError := scheduleServiceInstance.CreateSchedule(testContext, CreateScheduleRequest{
+		MovieID:   2,
+		StudioID:  2,
+		StartTime: overlappingStartTime,
+		EndTime:   overlappingEndTime,
 	})
-	if galat != nil {
-		t.Fatalf("diharapkan pembuatan di studio berbeda berhasil, didapat: %v", galat)
+	if differentStudioCreationError != nil {
+		testRunner.Fatalf("expected creation in different studio to succeed, got: %v", differentStudioCreationError)
+	}
+	if differentStudioScheduleDTO.ID != 2 {
+		testRunner.Fatalf("expected schedule ID 2, got: %d", differentStudioScheduleDTO.ID)
 	}
 
-	// 5. Batalkan jadwal
-	if galat := layanan.BatalkanJadwal(konteks, 1); galat != nil {
-		t.Fatalf("gagal membatalkan jadwal: %v", galat)
+	// 5. Cancel schedule
+	if cancellationError := scheduleServiceInstance.CancelSchedule(testContext, 1); cancellationError != nil {
+		testRunner.Fatalf("failed to cancel schedule: %v", cancellationError)
 	}
 
-	// 6. Setelah dibatalkan, slot waktu dapat dipesan kembali tanpa bentrok
-	_, galat = layanan.BuatJadwal(konteks, PermintaanBuatJadwal{
-		FilmID:       1,
-		StudioID:     1,
-		WaktuMulai:   waktuMulai,
-		WaktuSelesai: waktuSelesai,
+	// 6. After cancellation, the cancelled slot can be booked again without conflict
+	rebookedScheduleDTO, rebookingError := scheduleServiceInstance.CreateSchedule(testContext, CreateScheduleRequest{
+		MovieID:   1,
+		StudioID:  1,
+		StartTime: validStartTime,
+		EndTime:   validEndTime,
 	})
-	if galat != nil {
-		t.Fatalf("diharapkan slot yang dibatalkan dapat dipesan kembali, didapat: %v", galat)
+	if rebookingError != nil {
+		testRunner.Fatalf("expected cancelled slot to be bookable again, got: %v", rebookingError)
+	}
+	if rebookedScheduleDTO.ID != 3 {
+		testRunner.Fatalf("expected schedule ID 3, got: %d", rebookedScheduleDTO.ID)
 	}
 }

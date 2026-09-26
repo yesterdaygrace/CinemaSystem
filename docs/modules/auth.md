@@ -1,139 +1,140 @@
-# Modul Autentikasi (`internal/auth`)
+# Authentication Module (`internal/auth`)
 
-Direktori `internal/auth` mengelola seluruh domain autentikasi pengguna, penyimpanan kredensial, verifikasi password berbasis hash cryptographic (bcrypt), serta penerbitan dan validasi JSON Web Token (JWT).
+The `internal/auth` directory manages the entire user authentication domain, credential storage, cryptographic password verification (bcrypt), and JSON Web Token (JWT) issuance and validation.
 
 ---
 
-## 1. Daftar Berkas & Peran Masing-Masing
+## 1. File Catalog & Architectural Roles
 
-Direktori ini terdiri dari 6 berkas:
+The module contains 6 core source files:
 
-| Nama Berkas | Lapisan (Layer) | Peran & Tanggung Jawab Utama |
+| File Name | Layer | Primary Responsibility |
 |---|---|---|
-| [`model.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/model.go) | **Domain & DTO** | Mendefinisikan entitas database `Pengguna`, konstanta peran (`PeranAdmin`, `PeranCustomer`), payload permintaan login (`PermintaanLogin`), respons login (`ResponsLogin`), serta format standar error (`ResponsGalat`, `DetailGalat`). |
-| [`jwt.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/jwt.go) | **Security / Util** | Mengelola pembuatan token (`BuatToken` / `GenerateToken`) dan validasi token (`ValidasiToken` / `ValidateToken`) dengan algoritma HMAC-SHA256 serta struktur klaim token (`KlaimJWT`). |
-| [`repository.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/repository.go) | **Data Access (Repository)** | Mengabstraksikan akses ke tabel `pengguna` di basis data PostgreSQL menggunakan GORM melalui interface `RepositoriPengguna`. |
-| [`service.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/service.go) | **Business Logic (Service)** | Mengimplementasikan logika autentikasi: pencarian akun berdasarkan email, komparasi bcrypt hash password, serta pembuatan JWT token jika kredensial cocok. |
-| [`handler.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/handler.go) | **Presentation (Controller/HTTP)** | Menerima request HTTP Gin pada rute `POST /auth/login`, memvalidasi format input JSON, memanggil layer service, dan mengembalikan status code HTTP serta body JSON sesuai spesifikasi OpenAPI / Swagger. |
-| [`jwt_test.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/jwt_test.go) | **Unit Test** | Menguji fungsionalitas pembuatan token JWT, validitas klaim (Subject dan Role), masa kedaluwarsa (detik), dan penolakan token jika ditandatangani dengan secret yang salah. |
+| [`model.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/model.go) | **Domain & DTO** | Defines database entity `User`, role constants (`RoleAdmin`, `RoleCustomer`), login request DTO (`LoginRequest`), login response DTO (`LoginResponse`), and standard error contracts (`ErrorResponse`, `ErrorDetail`). |
+| [`jwt.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/jwt.go) | **Security / Utility** | Handles token creation (`GenerateToken`) and verification (`ValidateToken`) using HMAC-SHA256 and custom claim structures (`JWTClaims`). |
+| [`repository.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/repository.go) | **Data Access (Repository)** | Abstracts database queries against the `pengguna` table in PostgreSQL using GORM via the `UserRepository` interface. |
+| [`service.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/service.go) | **Business Logic (Service)** | Implements authentication logic: account lookups by email, bcrypt password hash verification, and JWT generation upon successful credential match. |
+| [`handler.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/handler.go) | **Presentation (Controller/HTTP)** | Binds Gin HTTP requests on `POST /auth/login`, validates JSON payloads, delegates to the service layer, and writes standardized HTTP response codes and JSON bodies according to OpenAPI / Swagger specifications. |
+| [`jwt_test.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/jwt_test.go) | **Unit Test** | Tests token issuance, claim fidelity (Subject and Role), expiration calculation, and signature rejection when validated against an invalid secret. |
 
 ---
 
-## 2. Rincian Teknis Per Berkas
+## 2. Technical Details per File
 
 ### A. [`model.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/model.go)
-- **Konstanta Peran**:
+- **Role Constants**:
   ```go
   const (
-      PeranAdmin    = "ADMIN"
-      PeranCustomer = "CUSTOMER"
+      RoleAdmin    = "ADMIN"
+      RoleCustomer = "CUSTOMER"
   )
   ```
-- **Struktur Entitas Basis Data (`Pengguna`)**:
-  - Mapped ke tabel `pengguna` via `TableName() string`.
-  - Field `HashKataSandi` diberi tag `json:"-"` agar hash password tidak pernah bocor ke output JSON API.
-  - Tag GORM: `primaryKey;autoIncrement`, `uniqueIndex`, `not null`.
-- **Payload DTO Input & Output**:
-  - `PermintaanLogin`: Memiliki validasi tag Gin `binding:"required,email"`. Menyediakan metode pembantu `KataSandiEfektif()` untuk mendukung fleksibilitas nama atribut `password` maupun `kata_sandi`.
-  - `ResponsLogin`: Mengembalikan `access_token`, `token_type: "Bearer"`, dan durasi aktif `expires_in` (dalam satuan detik).
-- **Format Respons Galat Terstandar**:
-  - `ResponsGalat` membungkus `DetailGalat` dengan struktur `{ "error": { "code": "...", "message": "..." } }`.
-- **Dukungan Dua Bahasa**:
-  - Menyediakan *type alias* bahasa Inggris (`User = Pengguna`, `LoginRequest = PermintaanLogin`, `LoginResponse = ResponsLogin`, `ErrorResponse = ResponsGalat`) guna menjaga interoperabilitas kode.
+- **Database Entity (`User`)**:
+  - Mapped to table `pengguna` via `TableName() string`.
+  - `PasswordHash` is tagged with `json:"-"` to strictly prevent password hashes from leaking to API responses.
+  - GORM tags: `primaryKey;autoIncrement`, `uniqueIndex`, `not null`.
+- **Input & Output DTOs**:
+  - `LoginRequest`: Validated via Gin binding `binding:"required,email"`. Provides helper method `EffectivePassword()`.
+  - `LoginResponse`: Returns `access_token`, `token_type: "Bearer"`, and expiration duration `expires_in` in seconds.
+- **Standardized Error Envelope**:
+  - `ErrorResponse` encapsulates `ErrorDetail` with the uniform schema:
+    ```json
+    { "error": { "code": "...", "message": "..." } }
+    ```
 
 ### B. [`jwt.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/jwt.go)
-- **Klaim Kustom (`KlaimJWT`)**:
-  - Menyematkan `jwt.RegisteredClaims` bawaan `github.com/golang-jwt/jwt/v5`.
-  - Menyimpan klaim kustom: `Peran string` (berisi `"ADMIN"` atau `"CUSTOMER"`).
-  - Menyimpan ID pengguna pada field standar `Subject` (`sub`) dalam bentuk string numerik.
-- **Fungsi `BuatToken`**:
-  - Menerima parameter `(idPengguna, peran, rahasia, jamKedaluwarsa)`.
-  - Menghitung waktu masa aktif UTC (`time.Now().UTC()`) dan detik kedaluwarsa (`jamKedaluwarsa * 3600`).
-  - Menandatangani token menggunakan algoritma `jwt.SigningMethodHS256`.
-- **Fungsi `ValidasiToken`**:
-  - Melakukan *parsing* dan verifikasi *signature* terhadap kunci rahasia (`rahasia`).
-  - Memeriksa keabsahan algoritma penandatanganan (`t.Method.(*jwt.SigningMethodHMAC)`) untuk menangkal celah keamanan *algorithm confusion attack* (misal memanipulasi header menjadi `alg: none` atau asymmetric key).
-  - Memverifikasi masa berlaku token (`token.Valid`).
+- **Custom Claims (`JWTClaims`)**:
+  - Embeds standard `jwt.RegisteredClaims` from `github.com/golang-jwt/jwt/v5`.
+  - Custom field `Role string` (`"ADMIN"` or `"CUSTOMER"`).
+  - Stores user ID in the standard `Subject` (`sub`) claim as a numeric string.
+- **Function `GenerateToken`**:
+  - Signature: `(userID int64, role, secret string, expiryHours int) (string, int64, error)`.
+  - Calculates UTC expiration timestamp (`time.Now().UTC()`) and returns lifespan in seconds (`expiryHours * 3600`).
+  - Signs tokens using `jwt.SigningMethodHS256`.
+- **Function `ValidateToken`**:
+  - Parses and verifies HMAC signature against the supplied `secret`.
+  - Checks signing method algorithm (`token.Method.(*jwt.SigningMethodHMAC)`) to eliminate algorithm confusion vulnerabilities (e.g. manipulating header to `alg: none` or RSA pubkey bypasses).
+  - Asserts token validity (`token.Valid`).
 
 ### C. [`repository.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/repository.go)
-- **Kontrak Antarmuka (`RepositoriPengguna`)**:
-  - `CariBerdasarkanEmail(ctx context.Context, email string) (*Pengguna, error)`
-  - `CariBerdasarkanID(ctx context.Context, id int64) (*Pengguna, error)`
-- **Implementasi GORM (`repositori`)**:
-  - Mengisolasi interaksi langsung dengan basis data (`r.db.WithContext(ctx)`).
-  - Mengonversi galat internal GORM `gorm.ErrRecordNotFound` menjadi galat domain seragam `GalatPenggunaTidakDitemukan` (`ErrUserNotFound`).
+- **Interface Contract (`UserRepository`)**:
+  - `FindByEmail(ctx context.Context, email string) (*User, error)`
+  - `FindByID(ctx context.Context, id int64) (*User, error)`
+- **GORM Implementation (`repository`)**:
+  - Scopes database operations with context (`r.db.WithContext(ctx)`).
+  - Converts internal GORM errors `gorm.ErrRecordNotFound` into clean domain sentinel errors `ErrUserNotFound`.
 
 ### D. [`service.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/service.go)
-- **Kontrak Antarmuka (`LayananAutentikasi`)**:
-  - `Login(ctx context.Context, permintaan PermintaanLogin) (*ResponsLogin, error)`
-- **Alur Bisnis Autentikasi**:
-  1. Mencari pengguna di database melalui `repo.CariBerdasarkanEmail`.
-  2. Jika pengguna tidak ditemukan, mengembalikan `GalatKredensialTidakValid` (tidak membocorkan apakah email terdaftar atau tidak, mencegah *user enumeration*).
-  3. Membandingkan hash kata sandi menggunakan `bcrypt.CompareHashAndPassword`. Jika hash berbeda, mengembalikan `GalatKredensialTidakValid`.
-  4. Menerbitkan token JWT dengan memanggil `BuatToken`.
-  5. Mengembalikan pointer `ResponsLogin` siap pakai.
+- **Interface Contract (`AuthService`)**:
+  - `Login(ctx context.Context, request LoginRequest) (*LoginResponse, error)`
+- **Authentication Business Flow**:
+  1. Look up user by email via `repo.FindByEmail`.
+  2. If user does not exist, return generic `ErrInvalidCredentials` (preventing user enumeration timing attacks).
+  3. Compare password hash using `bcrypt.CompareHashAndPassword`. If mismatched, return `ErrInvalidCredentials`.
+  4. Generate signed JWT token via `GenerateToken`.
+  5. Return initialized `LoginResponse` pointer.
 
 ### E. [`handler.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/handler.go)
-- **Penangan HTTP Gin (`HandlerAutentikasi`)**:
-  - Menyimpan referensi `layanan LayananAutentikasi`.
-  - Method `Login(c *gin.Context)`:
-    - Membaca body request dengan `c.ShouldBindJSON(&permintaan)`. Jika gagal/format email salah, mengembalikan HTTP 400 (`INVALID_REQUEST`).
-    - Memeriksa `KataSandiEfektif() == ""`. Jika kosong, mengembalikan HTTP 400 (`INVALID_REQUEST`).
-    - Memanggil `h.layanan.Login(...)`.
-    - Jika galat berupa `GalatKredensialTidakValid`, mengembalikan HTTP 401 (`INVALID_CREDENTIALS`).
-    - Jika galat lain terjadi, mengembalikan HTTP 500 (`INTERNAL_ERROR`).
-    - Jika sukses, mengembalikan HTTP 200 OK dengan payload `ResponsLogin`.
-  - Dilengkapi anotasi anotasi Swagger (`@Summary`, `@Tags Autentikasi`, `@Router /auth/login [post]`).
+- **Gin Controller (`AuthHandler`)**:
+  - Holds reference to `AuthService`.
+  - `Login(c *gin.Context)`:
+    - Binds JSON body via `c.ShouldBindJSON(&request)`. On validation failure, responds with HTTP 400 (`INVALID_REQUEST`).
+    - Checks `request.EffectivePassword() == ""`. If empty, responds with HTTP 400 (`INVALID_REQUEST`).
+    - Calls `h.service.Login(...)`.
+    - If `ErrInvalidCredentials`, returns HTTP 401 (`INVALID_CREDENTIALS`).
+    - If unanticipated failure occurs, returns HTTP 500 (`INTERNAL_ERROR`).
+    - On success, returns HTTP 200 OK with `LoginResponse`.
+  - Decorated with Swagger annotations (`@Summary`, `@Tags Authentication`, `@Router /auth/login [post]`).
 
 ### F. [`jwt_test.go`](file:///home/vinkanaka/Documents/Github/CinemaSystem/internal/auth/jwt_test.go)
-- Melakukan unit test mandiri tanpa ketergantungan basis data:
-  - Memverifikasi bahwa token yang dibuat tidak kosong.
-  - Memverifikasi kalkulasi durasi kedaluwarsa (24 jam = 86400 detik).
-  - Memverifikasi bahwa klaim `Peran` dan `Subject` terisi persis sesuai input.
-  - Memverifikasi bahwa validasi menggunakan *secret* yang salah langsung ditolak dengan mengembalikan galat.
+- Standalone unit test without database dependencies:
+  - Verifies issued token string is non-empty.
+  - Verifies expiration duration calculation (24 hours = 86,400 seconds).
+  - Verifies extracted claims (`Role` and `Subject`) match input arguments.
+  - Verifies token validation fails immediately when evaluated against an invalid secret.
 
 ---
 
-## 3. Hubungan Antarberkas di Dalam `internal/auth`
+## 3. Internal Module Dependency Graph
 
 ```mermaid
 graph TD
     subgraph "internal/auth"
-        Model["model.go<br/>(Pengguna, PermintaanLogin, ResponsLogin, ResponsGalat)"]
-        JWT["jwt.go<br/>(BuatToken, ValidasiToken, KlaimJWT)"]
-        Repo["repository.go<br/>(RepositoriPengguna, GORM DB)"]
-        Service["service.go<br/>(LayananAutentikasi, Bcrypt)"]
-        Handler["handler.go<br/>(HandlerAutentikasi, Gin Handler)"]
-        Test["jwt_test.go<br/>(Unit Test JWT)"]
+        Model["model.go<br/>(User, LoginRequest, LoginResponse, ErrorResponse)"]
+        JWT["jwt.go<br/>(GenerateToken, ValidateToken, JWTClaims)"]
+        Repo["repository.go<br/>(UserRepository, GORM DB)"]
+        Service["service.go<br/>(AuthService, Bcrypt)"]
+        Handler["handler.go<br/>(AuthHandler, Gin Handler)"]
+        Test["jwt_test.go<br/>(JWT Unit Tests)"]
 
-        Repo -->|Mengembalikan entitas| Model
-        Service -->|Memanggil query| Repo
-        Service -->|Menerbitkan JWT| JWT
-        Service -->|Menerima & mengembalikan DTO| Model
-        Handler -->|Meneruskan request ke| Service
-        Handler -->|Mengirimkan DTO respons| Model
-        Test -->|Menguji fungsi| JWT
+        Repo -->|Returns domain entity| Model
+        Service -->|Executes query| Repo
+        Service -->|Issues token| JWT
+        Service -->|Receives & returns DTOs| Model
+        Handler -->|Dispatches request| Service
+        Handler -->|Sends JSON response| Model
+        Test -->|Verifies functions| JWT
     end
 ```
 
 ---
 
-## 4. Hubungan dengan Berkas & Direktori Lain
+## 4. Cross-Module Relationships & External Dependencies
 
 1. **`cmd/api/main.go`**:
-   - Titik perakitan (*dependency injection*): Menginisialisasi `auth.BaruRepositori(basisData)`, kemudian menginjeksinya ke `auth.BaruLayanan(...)`, lalu ke `auth.BaruHandler(...)`.
-   - Mendaftarkan rute publik: `v1.POST("/auth/login", handlerAuth.Login)`.
+   - Composition root (Dependency Injection): Instantiates `auth.NewRepository(db)`, passes it to `auth.NewService(...)`, and mounts `auth.NewHandler(...)`.
+   - Registers public route: `v1.POST("/auth/login", authHandler.Login)`.
 2. **`internal/middleware/auth.go`**:
-   - Mengimpor `cinema-ticket-system/internal/auth`.
-   - Menggunakan fungsi `auth.ValidasiToken()` untuk memverifikasi bearer token yang dikirimkan klien pada setiap request yang terproteksi.
-   - Menggunakan `auth.ResponsGalat` dan `auth.DetailGalat` untuk menyeragamkan format respons saat token tidak ada (401) atau kedaluwarsa.
-   - Menggunakan konstanta `auth.PeranAdmin` sebagai argumen *role-guard* rute sensitif.
+   - Imports `cinema-ticket-system/internal/auth`.
+   - Calls `auth.ValidateToken()` to verify bearer tokens on protected endpoints.
+   - Uses `auth.ErrorResponse` and `auth.ErrorDetail` for uniform error contracts on missing/expired tokens (401).
+   - Uses `auth.RoleAdmin` constant to configure RBAC role guards.
 3. **`internal/database/postgres.go` & `internal/database/seed.go`**:
-   - `postgres.go`: Menyediakan instansi `*gorm.DB` yang diteruskan ke `auth.BaruRepositori`.
-   - `seed.go`: Memasukkan data akun default awal (`admin@example.com` dan `customer@example.com`) dengan password yang telah di-hash menggunakan `bcrypt`.
-4. **`migrations/000001_buat_tabel_pengguna.up.sql`**:
-   - Skrip migrasi DDL yang mendefinisikan skema tabel `pengguna` (`id`, `nama`, `email`, `hash_kata_sandi`, `peran`, `dibuat_pada`, `diperbarui_pada`).
+   - `postgres.go`: Provides initialized `*gorm.DB` instance passed into `auth.NewRepository`.
+   - `seed.go`: Seeds default accounts (`admin@example.com` and `customer@example.com`) with bcrypt-hashed passwords.
+4. **`migrations/000001_skema_awal_bioskop.up.sql` & `database.sql`**:
+   - DDL migration creating the `pengguna` table (`id`, `nama`, `email`, `hash_kata_sandi`, `peran`, `dibuat_pada`, `diperbarui_pada`).
 5. **`internal/config/config.go`**:
-   - Menyediakan nilai konfigurasi `RahasiaJWT` (secret key) dan `KedaluwarsaJWTJam` (lama masa aktif token dalam jam).
+   - Provides runtime settings `JWTSecret` and `JWTExpireHours`.
 6. **`tests/api_test.go`**:
-   - Melakukan uji integrasi menyeluruh (*end-to-end*) dengan melakukan login via API dan menggunakan token yang diterima untuk mengakses endpoint jadwal.
+   - Executes end-to-end integration tests by logging in via API and asserting valid tokens are returned.

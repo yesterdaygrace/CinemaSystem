@@ -1,32 +1,32 @@
 # B. Database Design Test
 
-## 🗄️ Diagram Entity Relationship (ERD JPG Export)
-![Diagram ERD Basis Data](database-erd.jpg)
+## 🗄️ Entity Relationship Diagram (ERD JPG Export)
+![Database ERD Diagram](database-erd.jpg)
 
-> 💡 **Skrip SQL Siap Impor untuk Tim MKP**:  
-> Seluruh skema DDL (13 tabel relasional) dan data awal (seeder) telah dikompilasi menjadi satu berkas mandiri: [**`docs/skema_dan_data_awal_bioskop.sql`**](skema_dan_data_awal_bioskop.sql).  
-> Dapat langsung diimpor menggunakan perintah: `psql -U bioskop -d bioskop -f docs/skema_dan_data_awal_bioskop.sql`
+> 💡 **Ready-to-Import SQL Script for Evaluators**:  
+> The complete DDL schema (14 relational tables) with `btree_gist` exclusion constraints, timezone support, and initial seed data have been compiled into standalone files: [**`database.sql`**](../database.sql), [**`docs/database.sql`**](database.sql), and [**`docs/skema_dan_data_awal_bioskop.sql`**](skema_dan_data_awal_bioskop.sql).  
+> Can be directly imported using: `psql -U bioskop -d bioskop -f docs/database.sql`
 
 ---
 
-## 1. Tujuan
+## 1. Objectives
 
-Database harus mendukung:
+The database must support:
 
 - User authentication.
-- Data bioskop dan cabang.
-- Studio.
-- Seat/kursi.
-- Film.
-- Jadwal tayang.
-- Inventory kursi per jadwal.
-- Order.
-- Pembayaran.
-- Ticket.
-- Refund.
+- Cinema chain and branch data.
+- Studios/Auditoriums.
+- Seats.
+- Movies.
+- Show schedules.
+- Seat inventory per show schedule.
+- Orders.
+- Payments.
+- Tickets.
+- Refunds.
 - Audit trail.
 
-Desain dibuat lebih detail daripada kebutuhan API agar konsisten dengan System Design pada bagian A.
+The design is constructed in greater detail than minimal API requirements to ensure full consistency with the System Design in Section A.
 
 ---
 
@@ -54,6 +54,7 @@ erDiagram
 
     ORDER_ITEMS ||--|| TICKETS : generates
     PAYMENTS ||--o{ REFUNDS : refunded_by
+    PAYMENTS ||--o{ PAYMENT_EVENTS : receives
 
     USERS {
         bigint id PK
@@ -175,13 +176,23 @@ erDiagram
         timestamp requested_at
         timestamp completed_at
     }
+
+    PAYMENT_EVENTS {
+        bigint id PK
+        varchar provider_event_id UK
+        bigint payment_id FK
+        varchar event_type
+        jsonb payload
+        timestamp received_at
+        timestamp processed_at
+    }
 ```
 
 ---
 
 # 3. Table: users
 
-Digunakan untuk authentication dan authorization.
+Used for authentication and role-based access control.
 
 ```text
 users
@@ -202,20 +213,20 @@ PRIMARY KEY (id)
 UNIQUE (email)
 ```
 
-### Role
+### Roles
 
 ```text
 CUSTOMER
 ADMIN
 ```
 
-Password tidak disimpan dalam plaintext.
+Passwords are never stored in plaintext (hashed using bcrypt).
 
 ---
 
 # 4. Table: cinemas
 
-Menyimpan cabang bioskop.
+Stores cinema branches and locations.
 
 ```text
 cinemas
@@ -229,7 +240,7 @@ created_at
 updated_at
 ```
 
-Satu cinema memiliki banyak studio.
+One cinema contains multiple studios:
 
 ```text
 cinema 1 ---- N studios
@@ -239,7 +250,7 @@ cinema 1 ---- N studios
 
 # 5. Table: studios
 
-Menyimpan studio/ruangan pada satu cabang.
+Stores auditoriums/rooms within a specific cinema branch.
 
 ```text
 studios
@@ -259,7 +270,7 @@ Foreign key:
 cinema_id → cinemas.id
 ```
 
-Contoh:
+Hierarchy Example:
 
 ```text
 Cinema Semarang
@@ -272,7 +283,7 @@ Cinema Semarang
 
 # 6. Table: seats
 
-Menyimpan kursi fisik pada studio.
+Stores physical seats inside an auditorium/studio.
 
 ```text
 seats
@@ -284,7 +295,7 @@ seat_number
 seat_type
 ```
 
-Contoh:
+Example seat identifiers:
 
 ```text
 A1
@@ -295,7 +306,7 @@ B2
 B3
 ```
 
-Satu studio memiliki banyak seat.
+One studio contains multiple seats:
 
 ```text
 studio 1 ---- N seats
@@ -305,7 +316,7 @@ studio 1 ---- N seats
 
 # 7. Table: movies
 
-Menyimpan informasi film.
+Stores film metadata and exhibition status.
 
 ```text
 movies
@@ -320,7 +331,7 @@ created_at
 updated_at
 ```
 
-Contoh status:
+Example statuses:
 
 ```text
 ACTIVE
@@ -331,7 +342,7 @@ INACTIVE
 
 # 8. Table: schedules
 
-Schedule adalah satu jadwal penayangan film pada satu studio.
+A schedule represents a specific screening of a movie in a particular studio at a specific time range.
 
 ```text
 schedules
@@ -346,14 +357,14 @@ created_at
 updated_at
 ```
 
-Foreign key:
+Foreign keys:
 
 ```text
 movie_id  → movies.id
 studio_id → studios.id
 ```
 
-Status:
+Statuses:
 
 ```text
 SCHEDULED
@@ -365,7 +376,7 @@ COMPLETED
 
 # 9. Table: show_seats
 
-Ini adalah tabel penting untuk pengelolaan availability kursi.
+Critical table for managing seat availability, locks, and concurrency per screening.
 
 ```text
 show_seats
@@ -380,7 +391,7 @@ sold_at
 updated_at
 ```
 
-### Status
+### Statuses
 
 ```text
 AVAILABLE
@@ -388,15 +399,15 @@ HELD
 SOLD
 ```
 
-### Constraint
+### Unique Constraint
 
 ```text
 UNIQUE(schedule_id, seat_id)
 ```
 
-Constraint ini memastikan satu seat tidak mempunyai dua record untuk schedule yang sama.
+This constraint guarantees that a physical seat cannot have duplicate inventory records for the same screening schedule.
 
-Contoh:
+Example:
 
 ```text
 schedule_id | seat_id | status
@@ -405,26 +416,26 @@ schedule_id | seat_id | status
 1002        | A10     | AVAILABLE
 ```
 
-Kursi A10 yang sama tetap dapat digunakan pada schedule lain.
+The same physical seat (A10) remains available for different screening schedules.
 
-### Hold
+### Seat Locking (Hold Mechanism)
 
-Saat customer memilih seat:
+When a customer selects a seat during checkout:
 
 ```text
 status = HELD
 held_by = user_id
-held_until = timestamp
+held_until = timestamp (now + 10 minutes)
 ```
 
-Jika pembayaran berhasil:
+Upon successful payment confirmation:
 
 ```text
 status = SOLD
 sold_at = timestamp
 ```
 
-Jika hold expired:
+If the hold expires before payment completes:
 
 ```text
 status = AVAILABLE
@@ -436,7 +447,7 @@ held_until = NULL
 
 # 10. Table: orders
 
-Satu order mewakili transaksi customer.
+An order represents a customer checkout transaction.
 
 ```text
 orders
@@ -451,7 +462,7 @@ created_at
 updated_at
 ```
 
-Contoh status:
+Example statuses:
 
 ```text
 PENDING
@@ -461,13 +472,13 @@ EXPIRED
 REFUNDED
 ```
 
-`order_number` harus unique.
+`order_number` must be strictly UNIQUE.
 
 ---
 
 # 11. Table: order_items
 
-Satu order dapat mempunyai lebih dari satu tiket.
+An order can contain multiple tickets/seats.
 
 ```text
 order_items
@@ -485,13 +496,13 @@ Relationship:
 order 1 ---- N order_items
 ```
 
-Setiap item mengacu pada seat tertentu pada show tertentu.
+Each item links directly to a specific `show_seat` record.
 
 ---
 
 # 12. Table: payments
 
-Menyimpan informasi pembayaran.
+Stores financial transaction records and payment gateway settlements.
 
 ```text
 payments
@@ -505,7 +516,7 @@ paid_at
 created_at
 ```
 
-Status contoh:
+Example statuses:
 
 ```text
 PENDING
@@ -514,13 +525,13 @@ FAILED
 EXPIRED
 ```
 
-`payment_reference` sebaiknya unique untuk mencegah duplicate payment record.
+`payment_reference` must be strictly UNIQUE to prevent duplicate payment processing.
 
 ---
 
 # 13. Table: tickets
 
-Ticket dibuat setelah transaksi berhasil.
+Generated upon successful payment settlement.
 
 ```text
 tickets
@@ -533,7 +544,7 @@ issued_at
 cancelled_at
 ```
 
-Status contoh:
+Example statuses:
 
 ```text
 ISSUED
@@ -542,17 +553,14 @@ CANCELLED
 REFUNDED
 ```
 
-`ticket_code` unique.
-
-Ticket tidak dihapus ketika refund.
-
-Statusnya berubah.
+`ticket_code` is strictly UNIQUE.  
+Tickets are never hard-deleted during refund/cancellation; their status transitions to preserve financial auditability.
 
 ---
 
 # 14. Table: refunds
 
-Mencatat proses pengembalian uang.
+Tracks refund requests, approvals, and banking disbursement status.
 
 ```text
 refunds
@@ -568,7 +576,7 @@ requested_at
 completed_at
 ```
 
-Status:
+Statuses:
 
 ```text
 PENDING
@@ -577,7 +585,7 @@ COMPLETED
 FAILED
 ```
 
-Contoh reason:
+Example reasons:
 
 ```text
 CINEMA_CANCELLED
@@ -589,7 +597,7 @@ SYSTEM_ERROR
 
 # 15. Table: audit_logs
 
-Opsional tetapi berguna untuk operasi penting.
+Tracks administrative actions and critical state transitions for security compliance.
 
 ```text
 audit_logs
@@ -604,7 +612,7 @@ new_value
 created_at
 ```
 
-Contoh:
+Example:
 
 ```text
 entity_type = SCHEDULE
@@ -612,46 +620,40 @@ entity_id   = 1001
 action      = CANCEL
 ```
 
-Audit trail menjaga histori perubahan penting tanpa menghapus data lama.
+Audit trails preserve the historical state of critical operations without destructive overwrites.
 
 ---
 
 # 16. Relationships
 
 ## User
-
 ```text
 users 1 ---- N orders
 users 1 ---- N show_seats (held_by)
 ```
 
 ## Cinema
-
 ```text
 cinemas 1 ---- N studios
 ```
 
 ## Studio
-
 ```text
 studios 1 ---- N seats
 studios 1 ---- N schedules
 ```
 
 ## Movie
-
 ```text
 movies 1 ---- N schedules
 ```
 
 ## Schedule
-
 ```text
 schedules 1 ---- N show_seats
 ```
 
 ## Order
-
 ```text
 orders 1 ---- N order_items
 orders 1 ---- N payments
@@ -659,7 +661,6 @@ orders 1 ---- N refunds
 ```
 
 ## Ticket
-
 ```text
 order_items 1 ---- 1 tickets
 ```
@@ -668,36 +669,29 @@ order_items 1 ---- 1 tickets
 
 # 17. Important Constraints
 
-### User email
-
+### User Email
 ```sql
 UNIQUE(email)
 ```
+Prevents duplicate user accounts with identical email addresses.
 
-Mencegah dua account mempunyai email yang sama.
-
-### Schedule seat
-
+### Schedule Seat
 ```sql
 UNIQUE(schedule_id, seat_id)
 ```
+Guarantees a seat appears at most once in any given screening schedule.
 
-Ini penting untuk menjaga satu seat hanya muncul sekali pada satu schedule.
-
-### Order number
-
+### Order Number
 ```sql
 UNIQUE(order_number)
 ```
 
-### Payment reference
-
+### Payment Reference
 ```sql
 UNIQUE(payment_reference)
 ```
 
-### Ticket code
-
+### Ticket Code
 ```sql
 UNIQUE(ticket_code)
 ```
@@ -706,7 +700,7 @@ UNIQUE(ticket_code)
 
 # 18. Important Indexes
 
-Recommended indexes:
+Recommended composite and B-tree indexes for production performance:
 
 ```text
 idx_schedules_movie_start
@@ -731,19 +725,16 @@ idx_refunds_status
     (status)
 ```
 
-Index `show_seats(schedule_id, status)` membantu query seperti:
-
+The composite index `show_seats(schedule_id, status)` optimizes high-frequency queries such as:
 ```text
-Ambil semua seat AVAILABLE untuk satu schedule
+SELECT * FROM show_seats WHERE schedule_id = ? AND status = 'AVAILABLE';
 ```
 
 ---
 
 # 19. Data Integrity
 
-Database harus menjaga referential integrity dengan foreign key.
-
-Contoh:
+Foreign key constraints enforce relational integrity:
 
 ```text
 schedule.movie_id
@@ -765,15 +756,13 @@ show_seat.seat_id
     → seats.id
 ```
 
-Foreign key mencegah orphan record.
+Foreign keys prevent orphan records and enforce consistency across table hierarchies.
 
 ---
 
 # 20. Cancellation Strategy
 
-Untuk schedule, lebih aman menggunakan logical cancellation daripada menghapus histori.
-
-Contoh:
+For schedules, logical cancellation (soft state transition) is preferred over hard deletes:
 
 ```text
 SCHEDULED
@@ -781,26 +770,26 @@ SCHEDULED
 CANCELLED
 ```
 
-Daripada:
+Rather than:
 
 ```sql
 DELETE FROM schedules;
 ```
 
-Hal ini memungkinkan order, ticket, dan refund tetap mengacu pada schedule yang pernah ada.
+This ensures existing orders, tickets, and refund records retain valid foreign references to historical schedules.
 
 ---
 
-# 21. Database untuk API Skill Test
+# 21. Database for API Technical Assessment Scope
 
-Bagian C hanya membutuhkan operasi:
+Part C focuses on the core administrative and screening operations:
 
 ```text
 Login
 Schedule CRUD
 ```
 
-Karena itu komponen database yang paling langsung digunakan oleh API adalah:
+The primary database tables actively interfaced by the assessment API are:
 
 ```text
 users
@@ -810,7 +799,7 @@ movies
 schedules
 ```
 
-Tabel berikut tetap menjadi bagian desain full system:
+The supporting transactional tables are fully designed for enterprise completeness:
 
 ```text
 show_seats
@@ -822,49 +811,53 @@ refunds
 audit_logs
 ```
 
-Tidak semua tabel tersebut membutuhkan endpoint pada skill test C.
+Not all supporting tables require exposed endpoints in the scoped Part C API implementation, but they complete the full architectural blueprint.
 
 ---
 
-# 22. Migration Order
+# 22. Relational Table Dependency & Migration Structure
 
-Urutan migration:
+Relational table creation dependency sequence (14 tables):
 
 ```text
-000001 users
-        ↓
-000002 cinemas
-        ↓
-000003 studios
-        ↓
-000004 seats
-        ↓
-000005 movies
-        ↓
-000006 schedules
-        ↓
-000007 show_seats
-        ↓
-000008 orders
-        ↓
-000009 order_items
-        ↓
-000010 payments
-        ↓
-000011 tickets
-        ↓
-000012 refunds
-        ↓
-000013 audit_logs
+01. users (pengguna)
+      ↓
+02. cinemas (bioskop) - with timezone (zona_waktu)
+      ↓
+03. studios (studio)
+      ↓
+04. seats (kursi)
+      ↓
+05. movies (film)
+      ↓
+06. schedules (jadwal) - with btree_gist exclusion constraint
+      ↓
+07. show_seats (kursi_jadwal)
+      ↓
+08. orders (pesanan)
+      ↓
+09. order_items (item_pesanan)
+      ↓
+10. payments (pembayaran)
+      ↓
+11. tickets (tiket)
+      ↓
+12. refunds (pengembalian_dana)
+      ↓
+13. audit_logs (log_audit)
+      ↓
+14. payment_events (event_pembayaran) - webhook idempotency
 ```
 
-Untuk implementasi minimum, migration dapat dibuat hanya sampai `schedules` terlebih dahulu dan sisanya ditambahkan sesuai kebutuhan pengembangan sistem.
+### Consolidated Migration Architecture:
+- [**`migrations/000001_skema_awal_bioskop.up.sql`**](../migrations/000001_skema_awal_bioskop.up.sql): Contains the complete, unified DDL for all 14 tables, PostgreSQL extensions (`uuid-ossp`, `btree_gist`), and indexes.
+- [**`database.sql`**](../database.sql): The complete standalone script containing both the 14-table DDL and initial seed data, ready for immediate import via `psql`.
 
 ---
 
-# 23. Ringkasan
+# 23. Summary
 
-Database menggunakan relational model:
+The database utilizes a normalized relational architecture:
 
 ```text
 Cinema
@@ -889,19 +882,19 @@ Order
   └── Refund
 ```
 
-Kunci desain seat:
+Seat inventory concurrency core:
 
 ```text
 show_seats(schedule_id, seat_id)
 ```
 
-dengan:
+With:
 
 ```text
 UNIQUE(schedule_id, seat_id)
 ```
 
-dan state:
+And lifecycle states:
 
 ```text
 AVAILABLE
@@ -909,4 +902,4 @@ HELD
 SOLD
 ```
 
-Desain tersebut mendukung concurrency, ticket inventory, cancellation, dan refund yang dijelaskan pada A.
+This model provides robust support for high-concurrency seat locking, real-time inventory management, screening cancellations, and automated refund processing as detailed in System Design (Part A).

@@ -18,278 +18,279 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func siapkanAplikasiUji(t *testing.T) (*gin.Engine, *config.Konfigurasi) {
+func setupTestApp(testRunner *testing.T) (*gin.Engine, *config.Config) {
 	gin.SetMode(gin.TestMode)
-	konfigurasi, galat := config.MuatKonfigurasi()
-	if galat != nil {
-		t.Fatalf("gagal memuat konfigurasi: %v", galat)
+	appConfig, configError := config.LoadConfig()
+	if configError != nil {
+		testRunner.Fatalf("failed to load configuration: %v", configError)
 	}
 
-	basisData, galat := database.HubungkanDatabase(konfigurasi)
-	if galat != nil {
-		t.Fatalf("gagal terhubung ke basis data: %v", galat)
+	databaseConnection, dbError := database.ConnectDatabase(appConfig)
+	if dbError != nil {
+		testRunner.Fatalf("failed to connect to database: %v", dbError)
 	}
 
-	// Pastikan migrasi tabel dan data awal telah terpasang
-	_ = database.JalankanMigrasi(konfigurasi.URL(), "../migrations")
-	_ = database.IsiDataAwal(basisData)
+	// Ensure database schema migrations and seed records are applied
+	_ = database.RunMigrations(appConfig.URL(), "../migrations")
+	_ = database.SeedInitialData(databaseConnection)
 
-	repoAuth := auth.BaruRepositori(basisData)
-	layananAuth := auth.BaruLayanan(repoAuth, konfigurasi.RahasiaJWT, konfigurasi.KedaluwarsaJWTJam)
-	handlerAuth := auth.BaruHandler(layananAuth)
+	authRepository := auth.NewRepository(databaseConnection)
+	authService := auth.NewService(authRepository, appConfig.JWTSecretKey, appConfig.JWTExpirationHours)
+	authHandler := auth.NewHandler(authService)
 
-	repoJadwal := schedule.BaruRepositori(basisData)
-	layananJadwal := schedule.BaruLayanan(repoJadwal)
-	handlerJadwal := schedule.BaruHandler(layananJadwal)
+	scheduleRepository := schedule.NewRepository(databaseConnection)
+	scheduleService := schedule.NewService(scheduleRepository)
+	scheduleHandler := schedule.NewHandler(scheduleService)
 
-	perute := gin.New()
-	perute.Use(gin.Recovery())
+	routerEngine := gin.New()
+	routerEngine.Use(gin.Recovery())
 
-	perute.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "UP"})
+	routerEngine.GET("/health", func(ginContext *gin.Context) {
+		ginContext.JSON(http.StatusOK, gin.H{"status": "UP"})
 	})
 
-	v1 := perute.Group("/api/v1")
+	v1ApiGroup := routerEngine.Group("/api/v1")
 	{
-		v1.POST("/auth/login", handlerAuth.Login)
+		v1ApiGroup.POST("/auth/login", authHandler.Login)
 
-		terproteksi := v1.Group("")
-		terproteksi.Use(middleware.AutentikasiJWT(konfigurasi.RahasiaJWT))
+		protectedGroup := v1ApiGroup.Group("")
+		protectedGroup.Use(middleware.JWTMiddleware(appConfig.JWTSecretKey))
 		{
-			terproteksi.GET("/schedules", handlerJadwal.Daftar)
-			terproteksi.GET("/schedules/:id", handlerJadwal.AmbilBerdasarkanID)
+			protectedGroup.GET("/schedules", scheduleHandler.List)
+			protectedGroup.GET("/schedules/:id", scheduleHandler.GetByID)
 
-			khususAdmin := terproteksi.Group("")
-			khususAdmin.Use(middleware.WajibPeran(auth.PeranAdmin))
+			adminOnlyGroup := protectedGroup.Group("")
+			adminOnlyGroup.Use(middleware.RequireRole(auth.RoleAdmin))
 			{
-				khususAdmin.POST("/schedules", handlerJadwal.Buat)
-				khususAdmin.PUT("/schedules/:id", handlerJadwal.Perbarui)
-				khususAdmin.DELETE("/schedules/:id", handlerJadwal.Hapus)
+				adminOnlyGroup.POST("/schedules", scheduleHandler.Create)
+				adminOnlyGroup.PUT("/schedules/:id", scheduleHandler.Update)
+				adminOnlyGroup.DELETE("/schedules/:id", scheduleHandler.Delete)
 			}
 		}
 	}
 
-	return perute, konfigurasi
+	return routerEngine, appConfig
 }
 
-func masuk(t *testing.T, perute *gin.Engine, surel, kataSandi string) string {
-	muatan, _ := json.Marshal(map[string]string{
-		"email":    surel,
-		"password": kataSandi,
+func loginUser(testRunner *testing.T, routerEngine *gin.Engine, emailAddress, plainPassword string) string {
+	requestPayload, _ := json.Marshal(map[string]string{
+		"email":    emailAddress,
+		"password": plainPassword,
 	})
-	permintaan, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBuffer(muatan))
-	permintaan.Header.Set("Content-Type", "application/json")
-	perekam := httptest.NewRecorder()
-	perute.ServeHTTP(perekam, permintaan)
+	httpRequest, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBuffer(requestPayload))
+	httpRequest.Header.Set("Content-Type", "application/json")
+	responseRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(responseRecorder, httpRequest)
 
-	if perekam.Code != http.StatusOK {
-		t.Fatalf("login gagal untuk %s dengan status %d: %s", surel, perekam.Code, perekam.Body.String())
+	if responseRecorder.Code != http.StatusOK {
+		testRunner.Fatalf("login failed for %s with status %d: %s", emailAddress, responseRecorder.Code, responseRecorder.Body.String())
 	}
 
-	var respons auth.ResponsLogin
-	_ = json.Unmarshal(perekam.Body.Bytes(), &respons)
-	return respons.AccessToken
+	var loginResponse auth.LoginResponse
+	_ = json.Unmarshal(responseRecorder.Body.Bytes(), &loginResponse)
+	return loginResponse.AccessToken
 }
 
-func TestPemeriksaanKesehatan(t *testing.T) {
-	perute, _ := siapkanAplikasiUji(t)
+func TestHealthCheck(testRunner *testing.T) {
+	routerEngine, _ := setupTestApp(testRunner)
 
-	permintaan, _ := http.NewRequest(http.MethodGet, "/health", nil)
-	perekam := httptest.NewRecorder()
-	perute.ServeHTTP(perekam, permintaan)
+	httpRequest, _ := http.NewRequest(http.MethodGet, "/health", nil)
+	responseRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(responseRecorder, httpRequest)
 
-	if perekam.Code != http.StatusOK {
-		t.Fatalf("diharapkan status 200, didapat %d", perekam.Code)
+	if responseRecorder.Code != http.StatusOK {
+		testRunner.Fatalf("expected status 200, got %d", responseRecorder.Code)
 	}
 }
 
-func TestAutentikasi_Login(t *testing.T) {
-	perute, _ := siapkanAplikasiUji(t)
+func TestAuthentication_Login(testRunner *testing.T) {
+	routerEngine, _ := setupTestApp(testRunner)
 
-	// 1. Berhasil login sebagai Admin
-	tokenAdmin := masuk(t, perute, "admin@example.com", "password123")
-	if tokenAdmin == "" {
-		t.Fatal("token admin tidak boleh kosong")
+	// 1. Successful login as Admin
+	adminAccessToken := loginUser(testRunner, routerEngine, "admin@example.com", "password123")
+	if adminAccessToken == "" {
+		testRunner.Fatal("admin access token must not be empty")
 	}
 
-	// 2. Berhasil login sebagai Pelanggan
-	tokenPelanggan := masuk(t, perute, "customer@example.com", "password123")
-	if tokenPelanggan == "" {
-		t.Fatal("token pelanggan tidak boleh kosong")
+	// 2. Successful login as Customer
+	customerAccessToken := loginUser(testRunner, routerEngine, "customer@example.com", "password123")
+	if customerAccessToken == "" {
+		testRunner.Fatal("customer access token must not be empty")
 	}
 
-	// 3. Kredensial tidak valid
-	muatanSalah, _ := json.Marshal(map[string]string{
+	// 3. Invalid credentials rejection
+	invalidPayload, _ := json.Marshal(map[string]string{
 		"email":    "admin@example.com",
 		"password": "wrongpassword",
 	})
-	permintaan, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBuffer(muatanSalah))
-	permintaan.Header.Set("Content-Type", "application/json")
-	perekam := httptest.NewRecorder()
-	perute.ServeHTTP(perekam, permintaan)
+	invalidRequest, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBuffer(invalidPayload))
+	invalidRequest.Header.Set("Content-Type", "application/json")
+	responseRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(responseRecorder, invalidRequest)
 
-	if perekam.Code != http.StatusUnauthorized {
-		t.Fatalf("diharapkan status 401, didapat %d", perekam.Code)
+	if responseRecorder.Code != http.StatusUnauthorized {
+		testRunner.Fatalf("expected status 401 Unauthorized, got %d", responseRecorder.Code)
 	}
-	var responsGalat auth.ResponsGalat
-	_ = json.Unmarshal(perekam.Body.Bytes(), &responsGalat)
-	if responsGalat.Error.Code != "INVALID_CREDENTIALS" {
-		t.Fatalf("diharapkan INVALID_CREDENTIALS, didapat: %s", responsGalat.Error.Code)
+	var errorResponse auth.ErrorResponse
+	_ = json.Unmarshal(responseRecorder.Body.Bytes(), &errorResponse)
+	if errorResponse.Error.Code != "INVALID_CREDENTIALS" {
+		testRunner.Fatalf("expected error code INVALID_CREDENTIALS, got: %s", errorResponse.Error.Code)
 	}
 }
 
-func TestJadwal_HakAkses(t *testing.T) {
-	perute, _ := siapkanAplikasiUji(t)
+func TestSchedule_AccessPermissions(testRunner *testing.T) {
+	routerEngine, _ := setupTestApp(testRunner)
 
-	tokenPelanggan := masuk(t, perute, "customer@example.com", "password123")
+	customerAccessToken := loginUser(testRunner, routerEngine, "customer@example.com", "password123")
 
-	// 1. Permintaan tanpa token otentikasi -> 401
-	permintaan1, _ := http.NewRequest(http.MethodGet, "/api/v1/schedules", nil)
-	perekam1 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam1, permintaan1)
-	if perekam1.Code != http.StatusUnauthorized {
-		t.Fatalf("diharapkan status 401, didapat %d", perekam1.Code)
+	// 1. Request without authorization token -> 401 Unauthorized
+	unauthorizedRequest, _ := http.NewRequest(http.MethodGet, "/api/v1/schedules", nil)
+	unauthorizedRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(unauthorizedRecorder, unauthorizedRequest)
+	if unauthorizedRecorder.Code != http.StatusUnauthorized {
+		testRunner.Fatalf("expected status 401 Unauthorized, got %d", unauthorizedRecorder.Code)
 	}
 
-	// 2. Pelanggan melihat daftar jadwal -> 200
-	permintaan2, _ := http.NewRequest(http.MethodGet, "/api/v1/schedules", nil)
-	permintaan2.Header.Set("Authorization", "Bearer "+tokenPelanggan)
-	perekam2 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam2, permintaan2)
-	if perekam2.Code != http.StatusOK {
-		t.Fatalf("diharapkan status 200, didapat %d", perekam2.Code)
+	// 2. Customer listing schedules -> 200 OK
+	customerListRequest, _ := http.NewRequest(http.MethodGet, "/api/v1/schedules", nil)
+	customerListRequest.Header.Set("Authorization", "Bearer "+customerAccessToken)
+	customerListRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(customerListRecorder, customerListRequest)
+	if customerListRecorder.Code != http.StatusOK {
+		testRunner.Fatalf("expected status 200 OK, got %d", customerListRecorder.Code)
 	}
 
-	// 3. Pelanggan mencoba membuat jadwal baru -> 403 Forbidden
-	bodiJadwal, _ := json.Marshal(map[string]interface{}{
+	// 3. Customer attempting to create a schedule -> 403 Forbidden
+	newSchedulePayload, _ := json.Marshal(map[string]interface{}{
 		"movie_id":   1,
 		"studio_id":  1,
 		"start_time": time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 		"end_time":   time.Now().Add(26 * time.Hour).Format(time.RFC3339),
 	})
-	permintaan3, _ := http.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewBuffer(bodiJadwal))
-	permintaan3.Header.Set("Authorization", "Bearer "+tokenPelanggan)
-	permintaan3.Header.Set("Content-Type", "application/json")
-	perekam3 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam3, permintaan3)
-	if perekam3.Code != http.StatusForbidden {
-		t.Fatalf("diharapkan status 403, didapat %d: %s", perekam3.Code, perekam3.Body.String())
+	forbiddenRequest, _ := http.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewBuffer(newSchedulePayload))
+	forbiddenRequest.Header.Set("Authorization", "Bearer "+customerAccessToken)
+	forbiddenRequest.Header.Set("Content-Type", "application/json")
+	forbiddenRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(forbiddenRecorder, forbiddenRequest)
+	if forbiddenRecorder.Code != http.StatusForbidden {
+		testRunner.Fatalf("expected status 403 Forbidden, got %d: %s", forbiddenRecorder.Code, forbiddenRecorder.Body.String())
 	}
 }
 
-func TestJadwal_SiklusHidupAdminDanKonflik(t *testing.T) {
-	perute, konfigurasi := siapkanAplikasiUji(t)
-	basisData, _ := database.HubungkanDatabase(konfigurasi)
-	// Bersihkan data uji jadwal di Studio 2
-	basisData.Exec("DELETE FROM jadwal WHERE studio_id = 2")
-	t.Cleanup(func() {
-		basisData.Exec("DELETE FROM jadwal WHERE studio_id = 2")
+func TestSchedule_AdminLifecycleAndConflict(testRunner *testing.T) {
+	routerEngine, appConfig := setupTestApp(testRunner)
+	databaseConnection, _ := database.ConnectDatabase(appConfig)
+
+	// Clean up Studio 2 schedules prior to testing
+	databaseConnection.Exec("DELETE FROM jadwal WHERE studio_id = 2")
+	testRunner.Cleanup(func() {
+		databaseConnection.Exec("DELETE FROM jadwal WHERE studio_id = 2")
 	})
 
-	tokenAdmin := masuk(t, perute, "admin@example.com", "password123")
+	adminAccessToken := loginUser(testRunner, routerEngine, "admin@example.com", "password123")
 
-	waktuMulai := time.Date(2027, 1, 15, 14, 0, 0, 0, time.UTC)
-	waktuSelesai := waktuMulai.Add(2 * time.Hour)
+	screeningStartTime := time.Date(2027, 1, 15, 14, 0, 0, 0, time.UTC)
+	screeningEndTime := screeningStartTime.Add(2 * time.Hour)
 
-	// 1. Admin membuat jadwal baru di Studio 2
-	bodiBuat, _ := json.Marshal(map[string]interface{}{
+	// 1. Admin creates a new schedule in Studio 2 -> 201 Created
+	createPayload, _ := json.Marshal(map[string]interface{}{
 		"movie_id":   1,
 		"studio_id":  2,
-		"start_time": waktuMulai.Format(time.RFC3339),
-		"end_time":   waktuSelesai.Format(time.RFC3339),
+		"start_time": screeningStartTime.Format(time.RFC3339),
+		"end_time":   screeningEndTime.Format(time.RFC3339),
 	})
-	permintaan1, _ := http.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewBuffer(bodiBuat))
-	permintaan1.Header.Set("Authorization", "Bearer "+tokenAdmin)
-	permintaan1.Header.Set("Content-Type", "application/json")
-	perekam1 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam1, permintaan1)
-	if perekam1.Code != http.StatusCreated {
-		t.Fatalf("diharapkan status 201 Created, didapat %d: %s", perekam1.Code, perekam1.Body.String())
+	createRequest, _ := http.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewBuffer(createPayload))
+	createRequest.Header.Set("Authorization", "Bearer "+adminAccessToken)
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(createRecorder, createRequest)
+	if createRecorder.Code != http.StatusCreated {
+		testRunner.Fatalf("expected status 201 Created, got %d: %s", createRecorder.Code, createRecorder.Body.String())
 	}
 
-	var responsDibuat schedule.ResponsJadwalTunggal
-	_ = json.Unmarshal(perekam1.Body.Bytes(), &responsDibuat)
-	idJadwalDibuat := responsDibuat.Data.ID
+	var singleResponse schedule.SingleScheduleResponse
+	_ = json.Unmarshal(createRecorder.Body.Bytes(), &singleResponse)
+	createdScheduleID := singleResponse.Data.ID
 
-	// 2. Admin membuat jadwal yang bentrok (overlapping) di Studio 2 -> 409 Conflict
-	mulaiBentrok := waktuMulai.Add(30 * time.Minute)
-	selesaiBentrok := waktuSelesai.Add(30 * time.Minute)
-	bodiBentrok, _ := json.Marshal(map[string]interface{}{
+	// 2. Admin creates an overlapping schedule in Studio 2 -> 409 Conflict
+	conflictStartTime := screeningStartTime.Add(30 * time.Minute)
+	conflictEndTime := screeningEndTime.Add(30 * time.Minute)
+	conflictPayload, _ := json.Marshal(map[string]interface{}{
 		"movie_id":   2,
 		"studio_id":  2,
-		"start_time": mulaiBentrok.Format(time.RFC3339),
-		"end_time":   selesaiBentrok.Format(time.RFC3339),
+		"start_time": conflictStartTime.Format(time.RFC3339),
+		"end_time":   conflictEndTime.Format(time.RFC3339),
 	})
-	permintaan2, _ := http.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewBuffer(bodiBentrok))
-	permintaan2.Header.Set("Authorization", "Bearer "+tokenAdmin)
-	permintaan2.Header.Set("Content-Type", "application/json")
-	perekam2 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam2, permintaan2)
-	if perekam2.Code != http.StatusConflict {
-		t.Fatalf("diharapkan status 409 Conflict, didapat %d: %s", perekam2.Code, perekam2.Body.String())
+	conflictRequest, _ := http.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewBuffer(conflictPayload))
+	conflictRequest.Header.Set("Authorization", "Bearer "+adminAccessToken)
+	conflictRequest.Header.Set("Content-Type", "application/json")
+	conflictRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(conflictRecorder, conflictRequest)
+	if conflictRecorder.Code != http.StatusConflict {
+		testRunner.Fatalf("expected status 409 Conflict, got %d: %s", conflictRecorder.Code, conflictRecorder.Body.String())
 	}
-	var responsGalat schedule.ResponsGalat
-	_ = json.Unmarshal(perekam2.Body.Bytes(), &responsGalat)
-	if responsGalat.Error.Code != "SCHEDULE_CONFLICT" {
-		t.Fatalf("diharapkan SCHEDULE_CONFLICT, didapat: %s", responsGalat.Error.Code)
-	}
-
-	// 3. Admin mengambil rincian jadwal berdasarkan ID -> 200 OK
-	permintaan3, _ := http.NewRequest(http.MethodGet, "/api/v1/schedules/"+strconv.FormatInt(idJadwalDibuat, 10), nil)
-	permintaan3.Header.Set("Authorization", "Bearer "+tokenAdmin)
-	perekam3 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam3, permintaan3)
-	if perekam3.Code != http.StatusOK {
-		t.Fatalf("diharapkan status 200 OK, didapat %d", perekam3.Code)
+	var conflictErrorResponse schedule.ErrorResponse
+	_ = json.Unmarshal(conflictRecorder.Body.Bytes(), &conflictErrorResponse)
+	if conflictErrorResponse.Error.Code != "SCHEDULE_CONFLICT" {
+		testRunner.Fatalf("expected error code SCHEDULE_CONFLICT, got: %s", conflictErrorResponse.Error.Code)
 	}
 
-	// 4. Admin memperbarui jadwal tayang -> 200 OK
-	selesaiBaru := waktuSelesai.Add(15 * time.Minute)
-	bodiPerbarui, _ := json.Marshal(map[string]interface{}{
+	// 3. Admin retrieves schedule details by ID -> 200 OK
+	getByIDRequest, _ := http.NewRequest(http.MethodGet, "/api/v1/schedules/"+strconv.FormatInt(createdScheduleID, 10), nil)
+	getByIDRequest.Header.Set("Authorization", "Bearer "+adminAccessToken)
+	getByIDRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(getByIDRecorder, getByIDRequest)
+	if getByIDRecorder.Code != http.StatusOK {
+		testRunner.Fatalf("expected status 200 OK, got %d", getByIDRecorder.Code)
+	}
+
+	// 4. Admin updates screening schedule -> 200 OK
+	updatedEndTime := screeningEndTime.Add(15 * time.Minute)
+	updatePayload, _ := json.Marshal(map[string]interface{}{
 		"movie_id":   1,
 		"studio_id":  2,
-		"start_time": waktuMulai.Format(time.RFC3339),
-		"end_time":   selesaiBaru.Format(time.RFC3339),
+		"start_time": screeningStartTime.Format(time.RFC3339),
+		"end_time":   updatedEndTime.Format(time.RFC3339),
 	})
-	permintaan4, _ := http.NewRequest(http.MethodPut, "/api/v1/schedules/"+strconv.FormatInt(idJadwalDibuat, 10), bytes.NewBuffer(bodiPerbarui))
-	permintaan4.Header.Set("Authorization", "Bearer "+tokenAdmin)
-	permintaan4.Header.Set("Content-Type", "application/json")
-	perekam4 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam4, permintaan4)
-	if perekam4.Code != http.StatusOK {
-		t.Fatalf("diharapkan status 200 OK saat pembaruan, didapat %d: %s", perekam4.Code, perekam4.Body.String())
+	updateRequest, _ := http.NewRequest(http.MethodPut, "/api/v1/schedules/"+strconv.FormatInt(createdScheduleID, 10), bytes.NewBuffer(updatePayload))
+	updateRequest.Header.Set("Authorization", "Bearer "+adminAccessToken)
+	updateRequest.Header.Set("Content-Type", "application/json")
+	updateRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(updateRecorder, updateRequest)
+	if updateRecorder.Code != http.StatusOK {
+		testRunner.Fatalf("expected status 200 OK on schedule update, got %d: %s", updateRecorder.Code, updateRecorder.Body.String())
 	}
 
-	// 5. Admin membatalkan jadwal secara logis -> 204 No Content
-	permintaan5, _ := http.NewRequest(http.MethodDelete, "/api/v1/schedules/"+strconv.FormatInt(idJadwalDibuat, 10), nil)
-	permintaan5.Header.Set("Authorization", "Bearer "+tokenAdmin)
-	perekam5 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam5, permintaan5)
-	if perekam5.Code != http.StatusNoContent {
-		t.Fatalf("diharapkan status 204 No Content saat pembatalan, didapat %d: %s", perekam5.Code, perekam5.Body.String())
+	// 5. Admin logically cancels screening schedule -> 204 No Content
+	cancelRequest, _ := http.NewRequest(http.MethodDelete, "/api/v1/schedules/"+strconv.FormatInt(createdScheduleID, 10), nil)
+	cancelRequest.Header.Set("Authorization", "Bearer "+adminAccessToken)
+	cancelRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(cancelRecorder, cancelRequest)
+	if cancelRecorder.Code != http.StatusNoContent {
+		testRunner.Fatalf("expected status 204 No Content on schedule cancel, got %d: %s", cancelRecorder.Code, cancelRecorder.Body.String())
 	}
 
-	// 6. Verifikasi status jadwal berubah menjadi CANCELLED (tidak dihapus fisik)
-	permintaan6, _ := http.NewRequest(http.MethodGet, "/api/v1/schedules/"+strconv.FormatInt(idJadwalDibuat, 10), nil)
-	permintaan6.Header.Set("Authorization", "Bearer "+tokenAdmin)
-	perekam6 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam6, permintaan6)
-	if perekam6.Code != http.StatusOK {
-		t.Fatalf("diharapkan status 200 OK, didapat %d", perekam6.Code)
+	// 6. Verify schedule status transitioned to CANCELLED
+	verifyRequest, _ := http.NewRequest(http.MethodGet, "/api/v1/schedules/"+strconv.FormatInt(createdScheduleID, 10), nil)
+	verifyRequest.Header.Set("Authorization", "Bearer "+adminAccessToken)
+	verifyRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(verifyRecorder, verifyRequest)
+	if verifyRecorder.Code != http.StatusOK {
+		testRunner.Fatalf("expected status 200 OK, got %d", verifyRecorder.Code)
 	}
-	var responsAmbil schedule.ResponsJadwalTunggal
-	_ = json.Unmarshal(perekam6.Body.Bytes(), &responsAmbil)
-	if responsAmbil.Data.Status != schedule.StatusDibatalkan {
-		t.Fatalf("diharapkan status CANCELLED, didapat: %s", responsAmbil.Data.Status)
+	var getScheduleResponse schedule.SingleScheduleResponse
+	_ = json.Unmarshal(verifyRecorder.Body.Bytes(), &getScheduleResponse)
+	if getScheduleResponse.Data.Status != schedule.StatusCancelled {
+		testRunner.Fatalf("expected status CANCELLED, got: %s", getScheduleResponse.Data.Status)
 	}
 
-	// 7. Verifikasi bahwa slot waktu yang sebelumnya dibatalkan kini dapat dijadwalkan ulang
-	permintaan7, _ := http.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewBuffer(bodiBuat))
-	permintaan7.Header.Set("Authorization", "Bearer "+tokenAdmin)
-	permintaan7.Header.Set("Content-Type", "application/json")
-	perekam7 := httptest.NewRecorder()
-	perute.ServeHTTP(perekam7, permintaan7)
-	if perekam7.Code != http.StatusCreated {
-		t.Fatalf("diharapkan status 201 Created setelah jadwal lama dibatalkan, didapat %d: %s", perekam7.Code, perekam7.Body.String())
+	// 7. Verify previously cancelled time slot can now be scheduled again without conflict
+	rebookRequest, _ := http.NewRequest(http.MethodPost, "/api/v1/schedules", bytes.NewBuffer(createPayload))
+	rebookRequest.Header.Set("Authorization", "Bearer "+adminAccessToken)
+	rebookRequest.Header.Set("Content-Type", "application/json")
+	rebookRecorder := httptest.NewRecorder()
+	routerEngine.ServeHTTP(rebookRecorder, rebookRequest)
+	if rebookRecorder.Code != http.StatusCreated {
+		testRunner.Fatalf("expected status 201 Created after prior schedule cancelled, got %d: %s", rebookRecorder.Code, rebookRecorder.Body.String())
 	}
 }

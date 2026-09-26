@@ -9,28 +9,28 @@ import (
 )
 
 func main() {
-	flagDataAwal := flag.Bool("seed", false, "Isi data awal setelah migrasi berhasil")
+	shouldSeedDatabase := flag.Bool("seed", false, "Seed initial records after migration succeeds")
 	flag.Parse()
 
-	konfigurasi, galat := config.MuatKonfigurasi()
-	if galat != nil {
-		log.Fatalf("Gagal memuat konfigurasi: %v", galat)
+	appConfig, configErr := config.LoadConfig()
+	if configErr != nil {
+		log.Fatalf("Failed to load configuration: %v", configErr)
 	}
 
-	log.Printf("Menghubungkan ke basis data di %s:%s...", konfigurasi.HostDB, konfigurasi.PortDB)
-	if galat := database.JalankanMigrasi(konfigurasi.URL(), "migrations"); galat != nil {
-		log.Fatalf("Migrasi gagal: %v", galat)
+	log.Printf("Connecting to database at %s:%s...", appConfig.DBHost, appConfig.DBPort)
+	if migrationErr := database.RunMigrations(appConfig.DatabaseURL(), "migrations"); migrationErr != nil {
+		log.Fatalf("Database migration failed: %v", migrationErr)
 	}
 
-	if *flagDataAwal {
-		db, galat := database.HubungkanDatabase(konfigurasi)
-		if galat != nil {
-			log.Fatalf("Koneksi ke basis data gagal: %v", galat)
+	if *shouldSeedDatabase {
+		dbInstance, dbErr := database.ConnectDatabase(appConfig)
+		if dbErr != nil {
+			log.Fatalf("Database connection failed: %v", dbErr)
 		}
-		if galat := database.IsiDataAwal(db); galat != nil {
-			log.Fatalf("Gagal mengisi data awal: %v", galat)
+		if seedErr := database.SeedInitialData(dbInstance); seedErr != nil {
+			log.Fatalf("Failed to seed initial database records: %v", seedErr)
 		}
 	}
 
-	log.Println("Perintah migrasi berhasil diselesaikan")
+	log.Println("Database migration command completed successfully")
 }

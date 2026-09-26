@@ -1,88 +1,88 @@
-# Arsitektur & Keterkaitan Modul Internal (Internal Modules Architecture)
+# Internal Modules Architecture & Relationships
 
-Dokumen ini menjelaskan struktur, tanggung jawab, dan relasi antarmodul pada direktori `internal/` di proyek **Cinema Ticket System**, khususnya:
+This document details the architectural structure, responsibilities, and cross-module interactions within the `internal/` directory of the **Cinema Ticket System**, specifically:
 1. [`internal/auth`](auth.md)
 2. [`internal/middleware`](middleware.md)
 3. [`internal/schedule`](schedule.md)
 
 ---
 
-## 1. Peta Arsitektur Tingkat Tinggi (High-Level Architecture)
+## 1. High-Level Architecture Map
 
-Proyek ini mengadopsi pola **Clean / Layered Architecture** dalam monolit modular (*modular monolith*):
+The project adopts a **Clean / Layered Architecture** pattern structured as a modular monolith:
 
 ```mermaid
 flowchart TD
     Client["Client / Postman / Frontend"] -->|"HTTP Request"| GinRouter["Gin Engine Router (cmd/api/main.go)"]
 
     subgraph MiddlewareLayer ["Middleware Layer (internal/middleware)"]
-        JWTMiddleware["AutentikasiJWT()"]
-        RoleMiddleware["WajibPeran(ADMIN)"]
+        JWTMiddleware["JWTMiddleware()"]
+        RoleMiddleware["RequireRole(RoleAdmin)"]
     end
 
-    GinRouter -->|"Publik /auth/login"| AuthHandler["auth.HandlerAutentikasi"]
-    GinRouter -->|"Terproteksi JWT"| JWTMiddleware
-    JWTMiddleware -->|"GET /schedules"| ScheduleHandler["schedule.HandlerJadwal"]
+    GinRouter -->|"Public /auth/login"| AuthHandler["auth.AuthHandler"]
+    GinRouter -->|"JWT Protected"| JWTMiddleware
+    JWTMiddleware -->|"GET /schedules"| ScheduleHandler["schedule.ScheduleHandler"]
     JWTMiddleware -->|"POST, PUT, DELETE"| RoleMiddleware
     RoleMiddleware --> ScheduleHandler
 
     subgraph AuthModule ["Auth Module (internal/auth)"]
-        AuthHandler --> AuthService["auth.LayananAutentikasi"]
-        AuthService --> AuthRepo["auth.RepositoriPengguna"]
-        AuthService --> JWTUtil["auth.BuatToken()"]
+        AuthHandler --> AuthService["auth.AuthService"]
+        AuthService --> AuthRepo["auth.UserRepository"]
+        AuthService --> JWTUtil["auth.GenerateToken()"]
         AuthRepo --> DB[("PostgreSQL Database (GORM)")]
     end
 
     subgraph ScheduleModule ["Schedule Module (internal/schedule)"]
-        ScheduleHandler --> ScheduleService["schedule.LayananJadwal"]
-        ScheduleService --> ScheduleRepo["schedule.RepositoriJadwal"]
+        ScheduleHandler --> ScheduleService["schedule.ScheduleService"]
+        ScheduleService --> ScheduleRepo["schedule.ScheduleRepository"]
         ScheduleRepo --> DB
     end
 
-    JWTMiddleware -.->|"Memvalidasi via"| AuthJWT["auth.ValidasiToken()"]
-    JWTMiddleware -.->|"Error Response"| AuthError["auth.ResponsGalat"]
+    JWTMiddleware -.->|"Validates via"| AuthJWT["auth.ValidateToken()"]
+    JWTMiddleware -.->|"Error Response"| AuthError["auth.ErrorResponse"]
 ```
 
 ---
 
-## 2. Ringkasan Modul yang Dijelaskan
+## 2. Summary of Documented Modules
 
-| Modul | Lokasi Direktori | Fungsi Utama | Keterkaitan Utama |
+| Module | Directory Location | Primary Responsibility | Key Interactions |
 |---|---|---|---|
-| **Auth** | [`internal/auth`](auth.md) | Mengelola data pengguna, verifikasi password bcrypt, pembuatan & validasi JWT. | Digunakan oleh `cmd/api`, `internal/middleware`, dan database `pengguna`. |
-| **Middleware** | [`internal/middleware`](middleware.md) | Interseptor HTTP Gin untuk ekstraksi JWT Bearer token dan penegakan otorisasi peran (RBAC). | Mengimpor `internal/auth`, melindungi endpoint pada `internal/schedule`. |
-| **Schedule** | [`internal/schedule`](schedule.md) | Manajemen CRUD jadwal tayang bioskop, validasi rentang waktu, dan pencegahan konflik tumpang tindih waktu studio. | Dilindungi oleh `internal/middleware`, diinjeksi dari `cmd/api`, terikat dengan tabel `jadwal`, `film`, dan `studio`. |
+| **Auth** | [`internal/auth`](auth.md) | Manages user credentials, bcrypt password verification, JWT generation & validation. | Consumed by `cmd/api`, `internal/middleware`, and the `pengguna` database table. |
+| **Middleware** | [`internal/middleware`](middleware.md) | Gin HTTP interceptors for Bearer JWT token extraction and role-based access control (RBAC). | Imports `internal/auth`, protects endpoints declared in `internal/schedule`. |
+| **Schedule** | [`internal/schedule`](schedule.md) | CRUD management of screening schedules, RFC3339 time window validation, and studio overlap conflict prevention. | Guarded by `internal/middleware`, wired from `cmd/api`, interacts with `jadwal`, `film`, and `studio` tables. |
 
 ---
 
-## 3. Matriks Keterkaitan Antarberkas (Cross-File Relationship Matrix)
+## 3. Cross-File Relationship Matrix
 
 ```
 [cmd/api/main.go]
    │
-   ├─► internal/config/config.go  (Memuat secret JWT & port)
-   ├─► internal/database/postgres.go (Koneksi database GORM)
+   ├─► internal/config/config.go  (Loads JWT secret & server port)
+   ├─► internal/database/postgres.go (GORM PostgreSQL database connection)
    │
    ├─► [internal/auth]
-   │     ├─ BaruRepositori()  <-- Menerima *gorm.DB
-   │     ├─ BaruLayanan()     <-- Menerima repo, rahasiaJWT, jamKedaluwarsa
-   │     └─ BaruHandler()     <-- Menghandle POST /api/v1/auth/login
+   │     ├─ NewRepository()  <-- Receives *gorm.DB
+   │     ├─ NewService()     <-- Receives user repo, jwtSecret, expiryHours
+   │     └─ NewHandler()     <-- Mounts POST /api/v1/auth/login
    │
    ├─► [internal/middleware]
-   │     ├─ AutentikasiJWT()  <-- Menggunakan auth.ValidasiToken()
-   │     └─ WajibPeran()      <-- Menggunakan konstanta auth.PeranAdmin
+   │     ├─ JWTMiddleware()  <-- Uses auth.ValidateToken()
+   │     └─ RequireRole()    <-- Validates auth.RoleAdmin constant
    │
    └─► [internal/schedule]
-         ├─ BaruRepositori()  <-- Menerima *gorm.DB
-         ├─ BaruLayanan()     <-- Menerima repo jadwal
-         └─ BaruHandler()     <-- Menghandle GET/POST/PUT/DELETE /api/v1/schedules
+         ├─ NewRepository()  <-- Receives *gorm.DB
+         ├─ NewService()     <-- Receives schedule repository
+         └─ NewHandler()     <-- Mounts GET/POST/PUT/DELETE /api/v1/schedules
 ```
 
 ---
 
-## 4. Indeks Berkas Dokumentasi
+## 4. Documentation Index
 
-Untuk membaca rincian mendalam tiap modul per berkas, silakan buka:
-- [`docs/modules/auth.md`](auth.md) — Rincian modul autentikasi dan penanganan JWT.
-- [`docs/modules/middleware.md`](middleware.md) — Rincian middleware proteksi JWT dan kontrol hak akses peran (RBAC).
-- [`docs/modules/schedule.md`](schedule.md) — Rincian modul manajemen jadwal tayang bioskop dan algoritma deteksi konflik studio.
+For in-depth per-file technical specifications, please consult:
+- [`docs/modules/auth.md`](auth.md) — Authentication module, JWT token lifecycle, and credential handling.
+- [`docs/modules/middleware.md`](middleware.md) — Gin middleware layer, JWT claim extraction, and RBAC enforcement.
+- [`docs/modules/schedule.md`](schedule.md) — Screening schedule service, time window validation, and overlap detection algorithms.

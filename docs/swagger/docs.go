@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/auth/login": {
             "post": {
-                "description": "Otentikasi pengguna menggunakan email dan kata sandi untuk memperoleh token akses JWT",
+                "description": "Authenticate user using email and password to obtain a JWT access token",
                 "consumes": [
                     "application/json"
                 ],
@@ -25,17 +25,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Autentikasi"
+                    "Authentication"
                 ],
-                "summary": "Login pengguna",
+                "summary": "User login",
                 "parameters": [
                     {
-                        "description": "Kredensial login pengguna",
+                        "description": "User login credentials",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.PermintaanLogin"
+                            "$ref": "#/definitions/auth.LoginRequest"
                         }
                     }
                 ],
@@ -43,25 +43,45 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.ResponsLogin"
+                            "$ref": "#/definitions/auth.LoginResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/auth.ResponsGalat"
+                            "$ref": "#/definitions/auth.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/auth.ResponsGalat"
+                            "$ref": "#/definitions/auth.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/auth.ResponsGalat"
+                            "$ref": "#/definitions/auth.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Returns the operational health status of the Cinema Ticket System API server",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System"
+                ],
+                "summary": "System Health Check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/main.HealthResponse"
                         }
                     }
                 }
@@ -74,7 +94,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Mengambil seluruh daftar jadwal tayang film",
+                "description": "Retrieve all movie screening schedules",
                 "consumes": [
                     "application/json"
                 ],
@@ -82,26 +102,26 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Jadwal"
+                    "Schedules"
                 ],
-                "summary": "Ambil daftar jadwal tayang",
+                "summary": "Get schedule list",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsDaftarJadwal"
+                            "$ref": "#/definitions/schedule.ListScheduleResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     }
                 }
@@ -112,7 +132,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Membuat jadwal tayang film baru (Khusus Admin)",
+                "description": "Create a new movie screening schedule (Admin only)",
                 "consumes": [
                     "application/json"
                 ],
@@ -120,17 +140,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Jadwal"
+                    "Schedules"
                 ],
-                "summary": "Buat jadwal tayang baru",
+                "summary": "Create a new schedule",
                 "parameters": [
                     {
-                        "description": "Data jadwal tayang baru",
+                        "description": "New schedule payload",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/schedule.PermintaanBuatJadwal"
+                            "$ref": "#/definitions/schedule.CreateScheduleRequest"
                         }
                     }
                 ],
@@ -138,37 +158,37 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsJadwalTunggal"
+                            "$ref": "#/definitions/schedule.SingleScheduleResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     }
                 }
@@ -181,7 +201,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Mengambil rincian informasi satu jadwal tayang berdasarkan ID",
+                "description": "Retrieve detailed information for a single screening schedule",
                 "consumes": [
                     "application/json"
                 ],
@@ -189,13 +209,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Jadwal"
+                    "Schedules"
                 ],
-                "summary": "Ambil jadwal tayang berdasarkan ID",
+                "summary": "Get schedule by ID",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID Jadwal",
+                        "description": "Schedule ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -205,31 +225,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsJadwalTunggal"
+                            "$ref": "#/definitions/schedule.SingleScheduleResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     }
                 }
@@ -240,7 +260,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Memperbarui data jadwal tayang yang sudah ada (Khusus Admin)",
+                "description": "Update an existing screening schedule (Admin only)",
                 "consumes": [
                     "application/json"
                 ],
@@ -248,24 +268,24 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Jadwal"
+                    "Schedules"
                 ],
-                "summary": "Perbarui jadwal tayang",
+                "summary": "Update schedule",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID Jadwal",
+                        "description": "Schedule ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Data pembaruan jadwal",
+                        "description": "Updated schedule payload",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/schedule.PermintaanPerbaruiJadwal"
+                            "$ref": "#/definitions/schedule.UpdateScheduleRequest"
                         }
                     }
                 ],
@@ -273,43 +293,43 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsJadwalTunggal"
+                            "$ref": "#/definitions/schedule.SingleScheduleResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     }
                 }
@@ -320,7 +340,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Membatalkan jadwal tayang secara logis (Khusus Admin)",
+                "description": "Logically cancel a screening schedule (Admin only)",
                 "consumes": [
                     "application/json"
                 ],
@@ -328,13 +348,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Jadwal"
+                    "Schedules"
                 ],
-                "summary": "Batalkan jadwal tayang",
+                "summary": "Cancel schedule",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID Jadwal",
+                        "description": "Schedule ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -347,31 +367,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/schedule.ResponsGalat"
+                            "$ref": "#/definitions/schedule.ErrorResponse"
                         }
                     }
                 }
@@ -379,7 +399,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "auth.DetailGalat": {
+        "auth.ErrorDetail": {
             "type": "object",
             "properties": {
                 "code": {
@@ -392,7 +412,15 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.PermintaanLogin": {
+        "auth.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/auth.ErrorDetail"
+                }
+            }
+        },
+        "auth.LoginRequest": {
             "type": "object",
             "required": [
                 "email"
@@ -402,25 +430,13 @@ const docTemplate = `{
                     "type": "string",
                     "example": "admin@example.com"
                 },
-                "kata_sandi": {
-                    "type": "string",
-                    "example": "password123"
-                },
                 "password": {
                     "type": "string",
                     "example": "password123"
                 }
             }
         },
-        "auth.ResponsGalat": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "$ref": "#/definitions/auth.DetailGalat"
-                }
-            }
-        },
-        "auth.ResponsLogin": {
+        "auth.LoginResponse": {
             "type": "object",
             "properties": {
                 "access_token": {
@@ -437,7 +453,79 @@ const docTemplate = `{
                 }
             }
         },
-        "schedule.DTOJadwal": {
+        "main.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "UP"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "2026-09-26T10:00:00Z"
+                }
+            }
+        },
+        "schedule.CreateScheduleRequest": {
+            "type": "object",
+            "required": [
+                "end_time",
+                "movie_id",
+                "start_time",
+                "studio_id"
+            ],
+            "properties": {
+                "end_time": {
+                    "type": "string",
+                    "example": "2026-10-01T21:10:00+07:00"
+                },
+                "movie_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2026-10-01T19:00:00+07:00"
+                },
+                "studio_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "schedule.ErrorDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "SCHEDULE_NOT_FOUND"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Schedule not found"
+                }
+            }
+        },
+        "schedule.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/schedule.ErrorDetail"
+                }
+            }
+        },
+        "schedule.ListScheduleResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schedule.ScheduleDTO"
+                    }
+                }
+            }
+        },
+        "schedule.ScheduleDTO": {
             "type": "object",
             "properties": {
                 "end_time": {
@@ -466,68 +554,26 @@ const docTemplate = `{
                 }
             }
         },
-        "schedule.DetailGalat": {
+        "schedule.SingleScheduleResponse": {
             "type": "object",
             "properties": {
-                "code": {
-                    "type": "string",
-                    "example": "SCHEDULE_NOT_FOUND"
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Schedule not found"
+                "data": {
+                    "$ref": "#/definitions/schedule.ScheduleDTO"
                 }
             }
         },
-        "schedule.PermintaanBuatJadwal": {
+        "schedule.UpdateScheduleRequest": {
             "type": "object",
             "required": [
-                "studio_id"
-            ],
-            "properties": {
-                "end_time": {
-                    "type": "string",
-                    "example": "2026-10-01T21:10:00+07:00"
-                },
-                "film_id": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "movie_id": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "start_time": {
-                    "type": "string",
-                    "example": "2026-10-01T19:00:00+07:00"
-                },
-                "studio_id": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "waktu_mulai": {
-                    "type": "string",
-                    "example": "2026-10-01T19:00:00+07:00"
-                },
-                "waktu_selesai": {
-                    "type": "string",
-                    "example": "2026-10-01T21:10:00+07:00"
-                }
-            }
-        },
-        "schedule.PermintaanPerbaruiJadwal": {
-            "type": "object",
-            "required": [
+                "end_time",
+                "movie_id",
+                "start_time",
                 "studio_id"
             ],
             "properties": {
                 "end_time": {
                     "type": "string",
                     "example": "2026-10-01T22:10:00+07:00"
-                },
-                "film_id": {
-                    "type": "integer",
-                    "example": 1
                 },
                 "movie_id": {
                     "type": "integer",
@@ -540,48 +586,13 @@ const docTemplate = `{
                 "studio_id": {
                     "type": "integer",
                     "example": 2
-                },
-                "waktu_mulai": {
-                    "type": "string",
-                    "example": "2026-10-01T20:00:00+07:00"
-                },
-                "waktu_selesai": {
-                    "type": "string",
-                    "example": "2026-10-01T22:10:00+07:00"
-                }
-            }
-        },
-        "schedule.ResponsDaftarJadwal": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schedule.DTOJadwal"
-                    }
-                }
-            }
-        },
-        "schedule.ResponsGalat": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "$ref": "#/definitions/schedule.DetailGalat"
-                }
-            }
-        },
-        "schedule.ResponsJadwalTunggal": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/schedule.DTOJadwal"
                 }
             }
         }
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "Masukkan 'Bearer \u003ctoken\u003e' untuk otentikasi",
+            "description": "Enter 'Bearer \u003ctoken\u003e' for authorization",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
@@ -595,8 +606,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8088",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "API Sistem Tiket Bioskop",
-	Description:      "Layanan Backend Pemesanan Tiket Bioskop Skala Nasional dengan Autentikasi dan Manajemen Jadwal Tayang",
+	Title:            "Cinema Ticket System API",
+	Description:      "Enterprise Cinema Ticket Reservation Backend API with JWT Authentication and Screening Schedule Management",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

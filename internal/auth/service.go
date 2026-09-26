@@ -8,60 +8,58 @@ import (
 )
 
 var (
-	GalatKredensialTidakValid = errors.New("email atau kata sandi tidak valid")
-	ErrInvalidCredentials     = GalatKredensialTidakValid
+	// ErrInvalidCredentials indicates that the provided email or password does not match.
+	ErrInvalidCredentials = errors.New("invalid email or password")
 )
 
-// LayananAutentikasi mendefinisikan kontrak logika bisnis autentikasi pengguna.
-type LayananAutentikasi interface {
-	Login(ctx context.Context, permintaan PermintaanLogin) (*ResponsLogin, error)
+// AuthService defines the business logic contract for authentication.
+type AuthService interface {
+	Login(requestContext context.Context, loginRequest LoginRequest) (*LoginResponse, error)
 }
 
-// Service adalah alias antarmuka untuk LayananAutentikasi.
-type Service = LayananAutentikasi
-
-type layanan struct {
-	repo           RepositoriPengguna
-	rahasiaJWT     string
-	jamKedaluwarsa int
+type authService struct {
+	userRepository     UserRepository
+	jwtSecretKey       string
+	jwtExpirationHours int
 }
 
-// BaruLayanan menginisialisasi layanan autentikasi baru.
-func BaruLayanan(repo RepositoriPengguna, rahasiaJWT string, jamKedaluwarsa int) LayananAutentikasi {
-	return &layanan{
-		repo:           repo,
-		rahasiaJWT:     rahasiaJWT,
-		jamKedaluwarsa: jamKedaluwarsa,
+// NewService constructs a new AuthService implementation instance.
+func NewService(userRepository UserRepository, jwtSecretKey string, jwtExpirationHours int) AuthService {
+	return &authService{
+		userRepository:     userRepository,
+		jwtSecretKey:       jwtSecretKey,
+		jwtExpirationHours: jwtExpirationHours,
 	}
 }
 
-// NewService adalah alias konstruktor untuk BaruLayanan.
-func NewService(repo RepositoriPengguna, jwtSecret string, expireHours int) LayananAutentikasi {
-	return BaruLayanan(repo, jwtSecret, expireHours)
-}
-
-func (l *layanan) Login(ctx context.Context, permintaan PermintaanLogin) (*ResponsLogin, error) {
-	pengguna, galat := l.repo.CariBerdasarkanEmail(ctx, permintaan.Email)
-	if galat != nil {
-		if errors.Is(galat, GalatPenggunaTidakDitemukan) {
-			return nil, GalatKredensialTidakValid
+// Login authenticates a user by email and password, returning a JWT token on success.
+func (service *authService) Login(requestContext context.Context, loginRequest LoginRequest) (*LoginResponse, error) {
+	userRecord, findUserError := service.userRepository.FindByEmail(requestContext, loginRequest.Email)
+	if findUserError != nil {
+		if errors.Is(findUserError, ErrUserNotFound) {
+			return nil, ErrInvalidCredentials
 		}
-		return nil, galat
+		return nil, findUserError
 	}
 
-	kataSandi := permintaan.KataSandiEfektif()
-	if galat := bcrypt.CompareHashAndPassword([]byte(pengguna.HashKataSandi), []byte(kataSandi)); galat != nil {
-		return nil, GalatKredensialTidakValid
+	providedPassword := loginRequest.EffectivePassword()
+	if passwordComparisonError := bcrypt.CompareHashAndPassword([]byte(userRecord.PasswordHash), []byte(providedPassword)); passwordComparisonError != nil {
+		return nil, ErrInvalidCredentials
 	}
 
-	tokenAkses, detikKedaluwarsa, galat := BuatToken(pengguna.ID, pengguna.Peran, l.rahasiaJWT, l.jamKedaluwarsa)
-	if galat != nil {
-		return nil, galat
+	accessTokenString, expirationDurationInSeconds, tokenGenerationError := GenerateToken(
+		userRecord.ID,
+		userRecord.Role,
+		service.jwtSecretKey,
+		service.jwtExpirationHours,
+	)
+	if tokenGenerationError != nil {
+		return nil, tokenGenerationError
 	}
 
-	return &ResponsLogin{
-		AccessToken: tokenAkses,
+	return &LoginResponse{
+		AccessToken: accessTokenString,
 		TokenType:   "Bearer",
-		ExpiresIn:   detikKedaluwarsa,
+		ExpiresIn:   expirationDurationInSeconds,
 	}, nil
 }
