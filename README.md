@@ -5,7 +5,7 @@
 - **Nama Lengkap Kandidat:** Kevin Van Diesel Chansa  
 - **Email:** [kevandeschans@gmail.com](mailto:kevandeschans@gmail.com)  
 - **Posisi / Role:** Backend Engineer  
-- **Tautan Repository Git:** [https://github.com/vinkanaka/CinemaSystem](https://github.com/vinkanaka/CinemaSystem)
+- **Tautan Repository Git:** [https://github.com/yesterdaygrace/CinemaSystem](https://github.com/yesterdaygrace/CinemaSystem)
 - **Jawaban &amp; Dokumentasi: /home/vinkanaka/Documents/Github/CinemaSystem/docs/tes\_mkp** 
 
 Platform backend pembelian tiket bioskop daring berskala nasional yang dirancang untuk mendukung banyak cabang bioskop di berbagai kota di Indonesia. Sistem ini dibangun dengan arsitektur tangguh berdaya tahan tinggi guna menangani beban konkurensi tinggi, menjamin perlindungan pemesanan kursi secara mutlak (**zero double-booking**), mengelola pencatatan dan pengembalian inventaris tiket otomatis (**auto-restock**), memproses alur pengembalian dana penuh (**refund 100%**) saat pihak bioskop membatalkan penayangan, serta menyediakan RESTful API Golang siap produksi dengan otentikasi JWT, otorisasi RBAC (`ADMIN` &amp; `CUSTOMER`), validasi pencegahan jadwal bentrok ganda di level aplikasi dan engine basis data (PostgreSQL `btree_gist` Exclusion Constraint), serta dokumentasi interaktif Swagger dan dashboard web demo tersemat.
@@ -694,7 +694,7 @@ Sesuai Instruksi 4, berkas ekspor Postman v2.1 resmi dan spesifikasi OpenAPI tel
 
 1. **Klon Repositori:**
    ```bash
-    git clone https://github.com/vinkanaka/CinemaSystem.git
+    git clone https://github.com/yesterdaygrace/CinemaSystem.git
     cd CinemaSystem
    ```
 2. **Jalankan Kontainer Basis Data PostgreSQL:**

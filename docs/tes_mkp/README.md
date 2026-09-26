@@ -4,7 +4,7 @@
 - **Nama Lengkap Kandidat:** Kevin Van Diesel Chansa  
 - **Email:** [kevandeschans@gmail.com](mailto:kevandeschans@gmail.com)  
 - **Posisi / Role:** Backend Engineer  
-- **Tautan Repository Git:** [https://github.com/vinkanaka/CinemaSystem](https://github.com/vinkanaka/CinemaSystem)  
+- **Tautan Repository Git:** [https://github.com/yesterdaygrace/CinemaSystem](https://github.com/yesterdaygrace/CinemaSystem)  
 
 ---
 

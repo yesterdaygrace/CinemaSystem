@@ -45,4 +45,5 @@ API tersebut adalah :
 2. Buat API CRUD data jadwal tayang  
 Note: API tersebut sudah menggunakan Authorization pada point 1  
 &gt;&gt; Link Repository Github / Gitlab (sertakan jawaban dari poin test A hingga C) :
+https://github.com/yesterdaygrace/CinemaSystem
 
