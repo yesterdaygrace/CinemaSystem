@@ -10,24 +10,24 @@ When a cinema branch experiences unforeseen operational issues (projector lamp m
 
 ```mermaid
 flowchart TD
-    A[Cinema Manager cancels schedule in Admin Portal] --> B[API marks jadwal status = CANCELLED]
-    B --> C[All seats in studio for this schedule marked INACTIVE<br>Cannot be booked by any user]
+    A["Cinema Manager cancels schedule in Admin Portal"] --> B["API marks jadwal status = CANCELLED"]
+    B --> C["All seats in studio for this schedule marked INACTIVE<br>Cannot be booked by any user"]
 
-    C --> D[Identify all affected orders where status = PAID]
-    D --> E[Kafka Event Dispatched: schedule.cancelled]
+    C --> D["Identify all affected orders where status = PAID"]
+    D --> E["Kafka Event Dispatched: schedule.cancelled"]
 
     subgraph RefundWorker ["Automated Refund & Notification Engine"]
-        E --> F[Create pengembalian_dana record with status = PENDING]
-        F --> G[Dispatch 100% refund transaction to Payment Gateway API]
-        G --> H{Disbursement Successful?}
+        E --> F["Create pengembalian_dana record with status = PENDING"]
+        F --> G["Dispatch 100% refund transaction to Payment Gateway API"]
+        G --> H{"Disbursement Successful?"}
 
-        H -->|Yes| I[UPDATE pengembalian_dana SET status = 'SUCCESS', diproses_pada = NOW()]
-        I --> J[UPDATE tiket SET status = 'REFUNDED', dibatalkan_pada = NOW()]
-        J --> K[UPDATE pembayaran SET status = 'REFUNDED']
-        K --> L[Dispatch WhatsApp & Email notification to customer with refund proof]
+        H -->|Yes| I["UPDATE pengembalian_dana SET status = 'SUCCESS', diproses_pada = NOW()"]
+        I --> J["UPDATE tiket SET status = 'REFUNDED', dibatalkan_pada = NOW()"]
+        J --> K["UPDATE pembayaran SET status = 'REFUNDED'"]
+        K --> L["Dispatch WhatsApp & Email notification to customer with refund proof"]
 
-        H -->|No| M[UPDATE pengembalian_dana SET status = 'FAILED']
-        M --> N[Push to Dead Letter Queue & Alert Finance Operations]
+        H -->|No| M["UPDATE pengembalian_dana SET status = 'FAILED'"]
+        M --> N["Push to Dead Letter Queue & Alert Finance Operations"]
     end
 ```
 

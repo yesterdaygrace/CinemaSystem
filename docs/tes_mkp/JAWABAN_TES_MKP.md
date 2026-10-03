@@ -39,24 +39,24 @@ Berikut adalah diagram alur pemesanan tiket bioskop yang dirancang sederhana dan
 
 ```mermaid
 flowchart TD
-    Start([Mulai: Buka Aplikasi Bioskop]) --> Step1[1. Pilih Film & Cabang Bioskop]
-    Step1 --> Step2[2. Pilih Tanggal & Jam Tayang]
-    Step2 --> Step3[3. Buka Denah & Pilih Nomor Kursi]
-    Step3 --> CheckSeat{Kursi Tersedia?}
+    Start(["Mulai: Buka Aplikasi Bioskop"]) --> Step1["1. Pilih Film & Cabang Bioskop"]
+    Step1 --> Step2["2. Pilih Tanggal & Jam Tayang"]
+    Step2 --> Step3["3. Buka Denah & Pilih Nomor Kursi"]
+    Step3 --> CheckSeat{"Kursi Tersedia?"}
 
-    CheckSeat -- Tidak --> ChooseOther[Pilih Kursi Lain yang Berwarna Hijau]
+    CheckSeat -- Tidak --> ChooseOther["Pilih Kursi Lain yang Berwarna Hijau"]
     ChooseOther --> Step3
 
-    CheckSeat -- Ya --> LockSeat[🔒 4. Kursi Terkunci Otomatis (10 Menit)<br>Status Kuning: Tidak Dapat Diambil Orang Lain]
-    LockSeat --> Payment[5. Lakukan Pembayaran Online<br>via QRIS / Virtual Account / E-Wallet]
+    CheckSeat -- Ya --> LockSeat["🔒 4. Kursi Terkunci Otomatis (10 Menit)<br>Status Kuning: Tidak Dapat Diambil Orang Lain"]
+    LockSeat --> Payment["5. Lakukan Pembayaran Online<br>via QRIS / Virtual Account / E-Wallet"]
 
-    Payment --> PaySuccess{Bayar Berhasil<br>Sebelum 10 Menit?}
+    Payment --> PaySuccess{"Bayar Berhasil<br>Sebelum 10 Menit?"}
 
-    PaySuccess -- Ya --> IssueTicket[🎟️ 6. Tiket Resmi Terbit (Ada Kode QR)<br>Status: Kursi Terjual / Abu-abu]
-    IssueTicket --> Finish([Selesai: Masuk Studio Bioskop])
+    PaySuccess -- Ya --> IssueTicket["🎟️ 6. Tiket Resmi Terbit (Ada Kode QR)<br>Status: Kursi Terjual / Abu-abu"]
+    IssueTicket --> Finish(["Selesai: Masuk Studio Bioskop"])
 
-    PaySuccess -- Waktu Habis / Gagal --> AutoRestock[🔓 Kunci Kursi Otomatis Terlepas<br>Kursi Kembali Hijau / Tersedia untuk Orang Lain]
-    AutoRestock --> Cancelled([Pesanan Batal])
+    PaySuccess -- Waktu Habis / Gagal --> AutoRestock["🔓 Kunci Kursi Otomatis Terlepas<br>Kursi Kembali Hijau / Tersedia untuk Orang Lain"]
+    AutoRestock --> Cancelled(["Pesanan Batal"])
 ```
 
 #### Penjelasan 4 Langkah Sederhana:

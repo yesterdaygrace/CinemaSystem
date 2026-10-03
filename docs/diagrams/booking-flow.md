@@ -8,30 +8,30 @@ This document visualizes the multi-user concurrent seat reservation lifecycle, d
 
 ```mermaid
 flowchart TD
-    A[Customer selects seats] --> B[Backend receives hold request]
-    B --> C[Acquire Redis Distributed Lock<br>Key: lock:schedule:id:seat:id]
-    C --> D{Redis Lock Acquired?}
+    A["Customer selects seats"] --> B["Backend receives hold request"]
+    B --> C["Acquire Redis Distributed Lock<br>Key: lock:schedule:id:seat:id"]
+    C --> D{"Redis Lock Acquired?"}
 
-    D -->|No| E[Reject immediately - 409 Conflict<br>Seat currently selected by another user]
-    D -->|Yes| F[Start PostgreSQL Transaction]
+    D -->|No| E["Reject immediately - 409 Conflict<br>Seat currently selected by another user"]
+    D -->|Yes| F["Start PostgreSQL Transaction"]
 
-    F --> G[SELECT * FROM kursi_jadwal FOR UPDATE]
-    G --> H{State == AVAILABLE or expired HELD?}
+    F --> G["SELECT * FROM kursi_jadwal FOR UPDATE"]
+    G --> H{"State == AVAILABLE or expired HELD?"}
 
-    H -->|No| I[Rollback & Release Redis Lock<br>Reject - 409 Conflict]
-    H -->|Yes| J[UPDATE kursi_jadwal<br>SET status = 'HELD', held_by = user_id,<br>held_until = NOW() + INTERVAL '10 minutes']
+    H -->|No| I["Rollback & Release Redis Lock<br>Reject - 409 Conflict"]
+    H -->|Yes| J["UPDATE kursi_jadwal<br>SET status = 'HELD', held_by = user_id,<br>held_until = NOW() + INTERVAL '10 minutes'"]
 
-    J --> K[Insert pesanan in PENDING status<br>with expires_at = held_until]
-    K --> L[COMMIT PostgreSQL Transaction]
-    L --> M[Customer proceeds to Checkout<br>Simulate Successful Payment]
+    J --> K["Insert pesanan in PENDING status<br>with expires_at = held_until"]
+    K --> L["COMMIT PostgreSQL Transaction"]
+    L --> M["Customer proceeds to Checkout<br>Simulate Successful Payment"]
 
-    M --> N{Payment Success before 10m TTL?}
+    M --> N{"Payment Success before 10m TTL?"}
 
-    N -->|Yes| O[BEGIN Transaction<br>UPDATE kursi_jadwal SET status = 'SOLD', sold_at = NOW()<br>UPDATE pesanan SET status = 'PAID'<br>INSERT tiket & event_pembayaran<br>COMMIT]
-    O --> P[🎟️ Tickets Issued with QR Code]
+    N -->|Yes| O["BEGIN Transaction<br>UPDATE kursi_jadwal SET status = 'SOLD', sold_at = NOW()<br>UPDATE pesanan SET status = 'PAID'<br>INSERT tiket & event_pembayaran<br>COMMIT"]
+    O --> P["🎟️ Tickets Issued with QR Code"]
 
-    N -->|No / Expired| Q[Automated Worker or Next Transaction:<br>UPDATE kursi_jadwal SET status = 'AVAILABLE', held_by = NULL<br>UPDATE pesanan SET status = 'EXPIRED'<br>Release Redis Lock Key]
-    Q --> R[🔓 Seats Restocked for Other Customers]
+    N -->|No / Expired| Q["Automated Worker or Next Transaction:<br>UPDATE kursi_jadwal SET status = 'AVAILABLE', held_by = NULL<br>UPDATE pesanan SET status = 'EXPIRED'<br>Release Redis Lock Key"]
+    Q --> R["🔓 Seats Restocked for Other Customers"]
 ```
 
 ---

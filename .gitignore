@@ -26,3 +26,4 @@ tmp/
 scratch/
 __pycache__/
 *.pyc
+.codebase-memory/
